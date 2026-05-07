@@ -32,4 +32,12 @@ export const fundService = {
     })
     return data
   },
+
+  async withdraw(fundId, { destinationAccountId, amount }) {
+    const { data } = await apiClient.post(`/investment/funds/${fundId}/withdraw`, {
+      destinationAccountId,
+      amount,
+    })
+    return data
+  },
 }
