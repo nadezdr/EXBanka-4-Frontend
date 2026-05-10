@@ -3,255 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import useWindowTitle from '../../hooks/useWindowTitle'
 import { useAuth } from '../../context/AuthContext'
 import { fundService } from '../../services/fundService'
-import { accountService } from '../../services/accountService'
 import { fmt } from '../../utils/formatting'
+import { InvestModal, BankDepositModal } from '../../components/funds/FundModals'
 
 function truncate(s, n = 80) {
   return s?.length > n ? s.slice(0, n) + '…' : (s ?? '—')
 }
 
-// ── Invest Modal ──────────────────────────────────────────────────────────────
-
-function InvestModal({ fund, onClose, onSuccess }) {
-  const [amount, setAmount]                   = useState('')
-  const [sourceAccountId, setSourceAccountId] = useState('')
-  const [accounts, setAccounts]               = useState([])
-  const [accountsLoading, setAccountsLoading] = useState(true)
-  const [amountError, setAmountError]         = useState('')
-  const [submitting, setSubmitting]           = useState(false)
-
-  useEffect(() => {
-    accountService.getAccounts()
-      .then(list => {
-        setAccounts(list)
-        if (list.length > 0) setSourceAccountId(String(list[0].id))
-      })
-      .catch(() => setAccounts([]))
-      .finally(() => setAccountsLoading(false))
-  }, [])
-
-  function validateAmount(val) {
-    const n = Number(val)
-    if (!val || isNaN(n) || n <= 0) {
-      setAmountError('Please enter a valid amount.')
-      return false
-    }
-    if (n < fund.minimumContribution) {
-      setAmountError(`Minimum contribution is ${fmt(fund.minimumContribution, 'RSD')}.`)
-      return false
-    }
-    setAmountError('')
-    return true
-  }
-
-  async function handleSubmit() {
-    if (!validateAmount(amount)) return
-    setSubmitting(true)
-    try {
-      await fundService.invest(fund.id, { sourceAccountId: Number(sourceAccountId), amount: Number(amount) })
-      onSuccess()
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Invest</p>
-            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
-              Amount (RSD) — minimum {fmt(fund.minimumContribution, 'RSD')}
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={e => { setAmount(e.target.value); setAmountError('') }}
-              onBlur={() => amount && validateAmount(amount)}
-              placeholder={`${fund.minimumContribution}`}
-              className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`}
-            />
-            {amountError && (
-              <p className="text-xs text-red-500 mt-1">{amountError}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Source Account</label>
-            {accountsLoading ? (
-              <p className="text-xs text-slate-400">Loading accounts…</p>
-            ) : accounts.length === 0 ? (
-              <p className="text-xs text-slate-400">No accounts available.</p>
-            ) : (
-              <select
-                value={sourceAccountId}
-                onChange={e => setSourceAccountId(e.target.value)}
-                className="input-field w-full text-sm"
-              >
-                {accounts.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.accountNumber} — {a.accountName ?? a.currencyCode}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || accountsLoading || accounts.length === 0}
-            className="btn-primary text-xs px-5 py-2 disabled:opacity-50"
-          >
-            {submitting ? 'Investing…' : 'Invest'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+function SortIcon({ sortCol, col, sortOrder }) {
+  if (sortCol !== col) return <span className="text-slate-300 dark:text-slate-600 ml-1">↕</span>
+  return <span className="text-violet-500 ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>
 }
-
-// ── Bank Deposit Modal ────────────────────────────────────────────────────────
-
-function BankDepositModal({ fund, onClose, onSuccess }) {
-  const [amount, setAmount]           = useState('')
-  const [bankAccountId, setBankAccountId] = useState('')
-  const [accounts, setAccounts]       = useState([])
-  const [accountsLoading, setAccountsLoading] = useState(true)
-  const [amountError, setAmountError] = useState('')
-  const [submitting, setSubmitting]   = useState(false)
-
-  useEffect(() => {
-    accountService.getBankAccounts()
-      .then(list => {
-        const rsd = list.filter(a => a.currencyCode === 'RSD')
-        setAccounts(rsd)
-        if (rsd.length > 0) setBankAccountId(String(rsd[0].id))
-      })
-      .catch(() => setAccounts([]))
-      .finally(() => setAccountsLoading(false))
-  }, [])
-
-  async function handleSubmit() {
-    const n = Number(amount)
-    if (!amount || isNaN(n) || n <= 0) { setAmountError('Please enter a valid amount.'); return }
-    if (n < fund.minimumContribution) { setAmountError(`Minimum contribution is ${fmt(fund.minimumContribution, 'RSD')}.`); return }
-    setAmountError('')
-    setSubmitting(true)
-    try {
-      await fundService.invest(fund.id, { sourceAccountId: Number(bankAccountId), amount: n })
-      onSuccess()
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Bank Deposit</p>
-            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
-              Amount (RSD) — minimum {fmt(fund.minimumContribution, 'RSD')}
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={e => { setAmount(e.target.value); setAmountError('') }}
-              placeholder={`${fund.minimumContribution}`}
-              className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`}
-            />
-            {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account (RSD)</label>
-            {accountsLoading ? (
-              <p className="text-xs text-slate-400">Loading accounts…</p>
-            ) : accounts.length === 0 ? (
-              <p className="text-xs text-slate-400">No RSD bank accounts available.</p>
-            ) : (
-              <select
-                value={bankAccountId}
-                onChange={e => setBankAccountId(e.target.value)}
-                className="input-field w-full text-sm"
-              >
-                {accounts.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.accountNumber} — {a.accountName ?? a.currencyCode}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || accountsLoading || accounts.length === 0 || !amount}
-            className="btn-primary text-xs px-5 py-2 disabled:opacity-50"
-          >
-            {submitting ? 'Depositing…' : 'Deposit'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function FundsDiscoveryPage() {
   useWindowTitle('Investment Funds | AnkaBanka')
@@ -294,11 +56,6 @@ export default function FundsDiscoveryPage() {
     }
   }
 
-  function SortIcon({ col }) {
-    if (sortCol !== col) return <span className="text-slate-300 dark:text-slate-600 ml-1">↕</span>
-    return <span className="text-violet-500 ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>
-  }
-
   const filtered = funds.filter(f =>
     !search || f.name?.toLowerCase().includes(search.toLowerCase())
   )
@@ -310,8 +67,7 @@ export default function FundsDiscoveryPage() {
     if (va == null && vb == null) return 0
     if (va == null) return 1
     if (vb == null) return -1
-    const cmp = va - vb
-    return sortOrder === 'ASC' ? cmp : -cmp
+    return sortOrder === 'ASC' ? va - vb : vb - va
   })
 
   function thClass(sortable) {
@@ -338,10 +94,7 @@ export default function FundsDiscoveryPage() {
             className="input-field w-full max-w-sm text-sm"
           />
           {isSupervisor && (
-            <button
-              onClick={() => navigate('/investment/funds/new')}
-              className="btn-primary text-xs px-5 py-2 shrink-0"
-            >
+            <button onClick={() => navigate('/investment/funds/new')} className="btn-primary text-xs px-5 py-2 shrink-0">
               + Create Fund
             </button>
           )}
@@ -364,74 +117,44 @@ export default function FundsDiscoveryPage() {
                     <th className={thClass(false)}>Fund Name</th>
                     <th className={thClass(false)}>Description</th>
                     <th className={thClass(true)} onClick={() => handleSort('fundValue')}>
-                      Fund Value<SortIcon col="fundValue" />
+                      Fund Value<SortIcon sortCol={sortCol} col="fundValue" sortOrder={sortOrder} />
                     </th>
                     <th className={thClass(true)} onClick={() => handleSort('profit')}>
-                      Profit<SortIcon col="profit" />
+                      Profit<SortIcon sortCol={sortCol} col="profit" sortOrder={sortOrder} />
                     </th>
                     <th className={thClass(true)} onClick={() => handleSort('minimumContribution')}>
-                      Min. Contribution<SortIcon col="minimumContribution" />
+                      Min. Contribution<SortIcon sortCol={sortCol} col="minimumContribution" sortOrder={sortOrder} />
                     </th>
-                    {(isAgent || isSupervisor) && (
-                      <th className={thClass(false)}>Actions</th>
-                    )}
+                    {(isAgent || isSupervisor) && <th className={thClass(false)}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {sorted.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                        No funds found.
-                      </td>
+                      <td colSpan={6} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">No funds found.</td>
                     </tr>
                   ) : (
                     sorted.map((fund, i) => (
-                      <tr
-                        key={fund.id}
-                        className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${
-                          i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'
-                        }`}
-                      >
+                      <tr key={fund.id} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => navigate(`/investment/funds/${fund.id}`)}
-                            className="text-violet-600 dark:text-violet-400 hover:underline font-medium text-left"
-                          >
+                          <button onClick={() => navigate(`/investment/funds/${fund.id}`)} className="text-violet-600 dark:text-violet-400 hover:underline font-medium text-left">
                             {fund.name}
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs">
-                          {truncate(fund.description)}
-                        </td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">
-                          {fmt(fund.fundValue, 'RSD')}
-                        </td>
-                        <td className={`px-4 py-3 font-medium tabular-nums ${
-                          (fund.profit ?? 0) >= 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-500 dark:text-red-400'
-                        }`}>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs">{truncate(fund.description)}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(fund.fundValue, 'RSD')}</td>
+                        <td className={`px-4 py-3 font-medium tabular-nums ${(fund.profit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                           {(fund.profit ?? 0) >= 0 ? '+' : ''}{fmt(fund.profit ?? 0, 'RSD')}
                         </td>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">
-                          {fmt(fund.minimumContribution, 'RSD')}
-                        </td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(fund.minimumContribution, 'RSD')}</td>
                         {(isAgent || isSupervisor) && (
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               {isAgent && (
-                                <button
-                                  onClick={() => setInvestModal(fund)}
-                                  className="btn-primary text-xs px-3 py-1"
-                                >
-                                  Invest
-                                </button>
+                                <button onClick={() => setInvestModal(fund)} className="btn-primary text-xs px-3 py-1">Invest</button>
                               )}
                               {isSupervisor && (
-                                <button
-                                  onClick={() => setDepositModal(fund)}
-                                  className="text-xs px-3 py-1 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200"
-                                >
+                                <button onClick={() => setDepositModal(fund)} className="text-xs px-3 py-1 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200">
                                   Deposit
                                 </button>
                               )}
@@ -455,18 +178,10 @@ export default function FundsDiscoveryPage() {
       </div>
 
       {investModal && (
-        <InvestModal
-          fund={investModal}
-          onClose={() => setInvestModal(null)}
-          onSuccess={() => { setInvestModal(null); loadFunds() }}
-        />
+        <InvestModal fund={investModal} onClose={() => setInvestModal(null)} onSuccess={() => { setInvestModal(null); loadFunds() }} />
       )}
       {depositModal && (
-        <BankDepositModal
-          fund={depositModal}
-          onClose={() => setDepositModal(null)}
-          onSuccess={() => { setDepositModal(null); loadFunds() }}
-        />
+        <BankDepositModal fund={depositModal} onClose={() => setDepositModal(null)} onSuccess={() => { setDepositModal(null); loadFunds() }} />
       )}
     </div>
   )
