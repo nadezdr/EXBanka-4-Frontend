@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, useCallback } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import useWindowTitle from '../../hooks/useWindowTitle'
+import { useAuth } from '../../context/AuthContext'
 import { portfolioService } from '../../services/portfolioService'
+import { fundService } from '../../services/fundService'
 import { fmt } from '../../utils/formatting'
-
-const TABS = [
-  { label: 'All Securities',    key: 'all' },
-  { label: 'Public Securities', key: 'public' },
-]
+import { InvestModal, BankDepositModal, WithdrawModal } from '../../components/funds/FundModals'
 
 function TypeBadge({ type }) {
   return (
@@ -17,9 +15,27 @@ function TypeBadge({ type }) {
   )
 }
 
+function ActiveBadge({ active }) {
+  return (
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+      {active ? 'Active' : 'Inactive'}
+    </span>
+  )
+}
+
 export default function PortfolioPage() {
   useWindowTitle('Portfolio | AnkaBanka')
   const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const isSupervisor = user?.permissions?.isSupervisor
+  const isAgent      = user?.permissions?.isAgent
+
+  const TABS = [
+    { label: 'All Securities',    key: 'all' },
+    { label: 'Public Securities', key: 'public' },
+    ...(isAgent || isSupervisor ? [{ label: 'My Funds', key: 'funds' }] : []),
+  ]
 
   const [holdings, setHoldings]   = useState([])
   const [loading, setLoading]     = useState(true)
@@ -27,6 +43,11 @@ export default function PortfolioPage() {
   const [activeTab, setActiveTab] = useState(TABS[0])
   const [profit, setProfit]       = useState(null)
   const [tax, setTax]             = useState(null)
+
+  const [myFunds, setMyFunds]           = useState([])
+  const [myFundsLoading, setMyFundsLoading] = useState(false)
+  const [myFundsError, setMyFundsError] = useState(null)
+  const [fundModal, setFundModal]       = useState(null) // { type, fund }
 
   useEffect(() => {
     setLoading(true)
@@ -45,6 +66,28 @@ export default function PortfolioPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const loadMyFunds = useCallback(async () => {
+    setMyFundsLoading(true)
+    setMyFundsError(null)
+    try {
+      let data
+      if (isSupervisor) {
+        data = await fundService.getManagedFunds(user?.id)
+      } else {
+        data = await fundService.getMyPositions()
+      }
+      setMyFunds(Array.isArray(data) ? data : [])
+    } catch {
+      setMyFundsError(true)
+    } finally {
+      setMyFundsLoading(false)
+    }
+  }, [isSupervisor, user?.id])
+
+  useEffect(() => {
+    if (activeTab.key === 'funds') loadMyFunds()
+  }, [activeTab.key, loadMyFunds])
+
   const displayed = activeTab.key === 'public'
     ? holdings.filter(h => h.isPublic)
     : holdings
@@ -61,11 +104,7 @@ export default function PortfolioPage() {
           {profit !== null && (
             <div className="text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm px-5 py-3 min-w-[140px]">
               <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">Total Profit</p>
-              <p className={`text-lg font-semibold tabular-nums ${
-                profit >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-500 dark:text-red-400'
-              }`}>
+              <p className={`text-lg font-semibold tabular-nums ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                 {profit >= 0 ? '+' : ''}{fmt(profit)}
               </p>
             </div>
@@ -105,80 +144,190 @@ export default function PortfolioPage() {
         ))}
       </div>
 
-      {/* Table card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Loading holdings…</p>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-red-500 text-sm">Failed to load portfolio.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Type', 'Ticker', 'Amount', 'Price', 'Profit', 'Last Modified', 'Public'].map(h => (
-                    <th key={h} className="px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                  <th className="px-4 py-4" />
-                </tr>
-              </thead>
-              <tbody>
-                {displayed.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                      {activeTab.key === 'public' ? 'No public holdings.' : 'No holdings found.'}
-                    </td>
+      {/* ── My Funds tab ── */}
+      {activeTab.key === 'funds' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          {myFundsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Loading funds…</p>
+            </div>
+          ) : myFundsError ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-red-500 text-sm">Failed to load funds.</p>
+            </div>
+          ) : myFunds.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-slate-400 dark:text-slate-500 text-sm">
+                {isSupervisor ? 'You manage no funds.' : 'You have no fund positions.'}
+              </p>
+            </div>
+          ) : isSupervisor ? (
+            /* Supervisor: managed funds */
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    {['Fund Name', 'Description', 'Fund Value', 'Liquid Assets', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ) : (
-                  displayed.map((h, i) => (
-                    <tr
-                      key={h.id}
-                      className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${
-                        i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'
-                      }`}
-                    >
-                      <td className="px-4 py-3"><TypeBadge type={h.asset_type} /></td>
-                      <td className="px-4 py-3 font-mono font-medium text-slate-900 dark:text-white">{h.ticker || h.listingId}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{h.amount}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(h.price ?? 0)}</td>
-                      <td className={`px-4 py-3 font-medium tabular-nums ${
-                        (h.profit ?? 0) >= 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-red-500 dark:text-red-400'
-                      }`}>
-                        {(h.profit ?? 0) >= 0 ? '+' : ''}{fmt(h.profit ?? 0)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{h.last_modified}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 tabular-nums">
-                        {h.asset_type === 'STOCK' ? (h.public_amount ?? 0) : '—'}
-                      </td>
+                </thead>
+                <tbody>
+                  {myFunds.map((f, i) => (
+                    <tr key={f.id} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => navigate(`/orders/new?ticker=${encodeURIComponent(h.ticker)}&direction=SELL`)}
-                          className="border border-red-400 text-red-500 text-xs px-3 py-1 hover:bg-red-500 hover:text-white transition-all duration-150"
-                        >
-                          Sell
-                        </button>
+                        <Link to={`/investment/funds/${f.id}`} className="text-violet-600 dark:text-violet-400 hover:underline font-medium">{f.name}</Link>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">{f.description || '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(f.fundValue ?? 0, 'RSD')}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(f.liquidAssets ?? 0, 'RSD')}</td>
+                      <td className="px-4 py-3"><ActiveBadge active={f.active} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button onClick={() => setFundModal({ type: 'deposit', fund: f })} className="text-xs px-3 py-1 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200">
+                            Deposit
+                          </button>
+                          <button onClick={() => setFundModal({ type: 'withdraw', fund: f })} className="text-xs px-3 py-1 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
+                            Withdraw
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {!loading && !error && displayed.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
-            {displayed.length} holding{displayed.length !== 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* Agent: my positions */
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    {['Fund Name', 'Description', 'Fund Value', 'Invested', 'Current Value', 'Profit', '% Share', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {myFunds.map((pos, i) => {
+                    const fundObj = { id: pos.fundId ?? pos.id, name: pos.fundName ?? pos.name, minimumContribution: pos.minimumContribution ?? 0 }
+                    const profitColor = (pos.myProfit ?? pos.profit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+                    const profitVal = pos.myProfit ?? pos.profit ?? 0
+                    return (
+                      <tr key={pos.fundId ?? pos.id ?? i} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
+                        <td className="px-4 py-3">
+                          <Link to={`/investment/funds/${fundObj.id}`} className="text-violet-600 dark:text-violet-400 hover:underline font-medium">{fundObj.name}</Link>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">{pos.description || '—'}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.fundValue ?? 0, 'RSD')}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.myInvestedAmount ?? pos.investedAmount ?? 0, 'RSD')}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.myCurrentValue ?? pos.currentValue ?? 0, 'RSD')}</td>
+                        <td className={`px-4 py-3 tabular-nums font-medium ${profitColor}`}>
+                          {profitVal >= 0 ? '+' : ''}{fmt(profitVal, 'RSD')}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-400">
+                          {((pos.sharePercentage ?? pos.share ?? 0)).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button onClick={() => setFundModal({ type: 'invest', fund: fundObj })} className="btn-primary text-xs px-3 py-1">
+                              Invest
+                            </button>
+                            <button onClick={() => setFundModal({ type: 'withdraw', fund: fundObj })} className="text-xs px-3 py-1 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
+                              Withdraw
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!myFundsLoading && !myFundsError && myFunds.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
+              {myFunds.length} fund{myFunds.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Securities tabs ── */}
+      {activeTab.key !== 'funds' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Loading holdings…</p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-red-500 text-sm">Failed to load portfolio.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    {['Type', 'Ticker', 'Amount', 'Price', 'Profit', 'Last Modified', 'Public'].map(h => (
+                      <th key={h} className="px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                    <th className="px-4 py-4" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayed.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
+                        {activeTab.key === 'public' ? 'No public holdings.' : 'No holdings found.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    displayed.map((h, i) => (
+                      <tr key={h.id} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
+                        <td className="px-4 py-3"><TypeBadge type={h.asset_type} /></td>
+                        <td className="px-4 py-3 font-mono font-medium text-slate-900 dark:text-white">{h.ticker || h.listingId}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{h.amount}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(h.price ?? 0)}</td>
+                        <td className={`px-4 py-3 font-medium tabular-nums ${(h.profit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                          {(h.profit ?? 0) >= 0 ? '+' : ''}{fmt(h.profit ?? 0)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{h.last_modified}</td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 tabular-nums">
+                          {h.asset_type === 'STOCK' ? (h.public_amount ?? 0) : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => navigate(`/orders/new?ticker=${encodeURIComponent(h.ticker)}&direction=SELL`)}
+                            className="border border-red-400 text-red-500 text-xs px-3 py-1 hover:bg-red-500 hover:text-white transition-all duration-150"
+                          >
+                            Sell
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!loading && !error && displayed.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
+              {displayed.length} holding{displayed.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {fundModal?.type === 'invest' && (
+        <InvestModal fund={fundModal.fund} onClose={() => setFundModal(null)} onSuccess={() => { setFundModal(null); loadMyFunds() }} />
+      )}
+      {fundModal?.type === 'deposit' && (
+        <BankDepositModal fund={fundModal.fund} onClose={() => setFundModal(null)} onSuccess={() => { setFundModal(null); loadMyFunds() }} />
+      )}
+      {fundModal?.type === 'withdraw' && (
+        <WithdrawModal fund={fundModal.fund} isSupervisor={isSupervisor} onClose={() => setFundModal(null)} onSuccess={() => { setFundModal(null); loadMyFunds() }} />
+      )}
     </div>
   )
 }

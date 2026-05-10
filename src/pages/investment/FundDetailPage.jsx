@@ -1,112 +1,49 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  ResponsiveContainer, LineChart, Line,
+  XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts'
 import useWindowTitle from '../../hooks/useWindowTitle'
 import { useAuth } from '../../context/AuthContext'
 import { fundService } from '../../services/fundService'
-import { accountService } from '../../services/accountService'
 import { fmt } from '../../utils/formatting'
+import { InvestModal, BankDepositModal, WithdrawModal } from '../../components/funds/FundModals'
 
-// ── Invest Modal ──────────────────────────────────────────────────────────────
+const PERF_PERIODS = [
+  { label: '1M', months: 1 },
+  { label: '3M', months: 3 },
+  { label: '6M', months: 6 },
+  { label: '1Y', months: 12 },
+]
 
-function InvestModal({ fund, onClose, onSuccess }) {
-  const [amount, setAmount]                   = useState('')
-  const [sourceAccountId, setSourceAccountId] = useState('')
-  const [accounts, setAccounts]               = useState([])
-  const [accountsLoading, setAccountsLoading] = useState(true)
-  const [amountError, setAmountError]         = useState('')
-  const [submitting, setSubmitting]           = useState(false)
-
-  useEffect(() => {
-    accountService.getAccounts()
-      .then(list => {
-        setAccounts(list)
-        if (list.length > 0) setSourceAccountId(String(list[0].id))
-      })
-      .catch(() => setAccounts([]))
-      .finally(() => setAccountsLoading(false))
-  }, [])
-
-  function validateAmount(val) {
-    const n = Number(val)
-    if (!val || isNaN(n) || n <= 0) { setAmountError('Please enter a valid amount.'); return false }
-    if (n < fund.minimumContribution) { setAmountError(`Minimum contribution is ${fmt(fund.minimumContribution, 'RSD')}.`); return false }
-    setAmountError(''); return true
+function periodDates(months) {
+  const to   = new Date()
+  const from = new Date()
+  from.setMonth(from.getMonth() - months)
+  return {
+    from: from.toISOString().slice(0, 10),
+    to:   to.toISOString().slice(0, 10),
   }
-
-  async function handleSubmit() {
-    if (!validateAmount(amount)) return
-    setSubmitting(true)
-    try {
-      await fundService.invest(fund.id, { sourceAccountId: Number(sourceAccountId), amount: Number(amount) })
-      onSuccess()
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Invest</p>
-            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none">×</button>
-        </div>
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Amount (RSD) — minimum {fmt(fund.minimumContribution, 'RSD')}</label>
-            <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setAmountError('') }} onBlur={() => amount && validateAmount(amount)} placeholder={`${fund.minimumContribution}`} className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`} />
-            {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Source Account</label>
-            {accountsLoading ? <p className="text-xs text-slate-400">Loading accounts…</p> : accounts.length === 0 ? <p className="text-xs text-slate-400">No accounts available.</p> : (
-              <select value={sourceAccountId} onChange={e => setSourceAccountId(e.target.value)} className="input-field w-full text-sm">
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.accountNumber} — {a.accountName ?? a.currencyCode}</option>)}
-              </select>
-            )}
-          </div>
-        </div>
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-          <button onClick={onClose} className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2">Cancel</button>
-          <button onClick={handleSubmit} disabled={submitting || accountsLoading || accounts.length === 0} className="btn-primary text-xs px-5 py-2 disabled:opacity-50">{submitting ? 'Investing…' : 'Invest'}</button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
-// ── Bank Deposit Modal ────────────────────────────────────────────────────────
+// ── Sell Modal ────────────────────────────────────────────────────────────────
 
-function BankDepositModal({ fund, onClose, onSuccess }) {
-  const [amount, setAmount]                   = useState('')
-  const [bankAccountId, setBankAccountId]     = useState('')
-  const [accounts, setAccounts]               = useState([])
-  const [accountsLoading, setAccountsLoading] = useState(true)
-  const [amountError, setAmountError]         = useState('')
-  const [submitting, setSubmitting]           = useState(false)
-
-  useEffect(() => {
-    accountService.getBankAccounts()
-      .then(list => {
-        const rsd = list.filter(a => a.currencyCode === 'RSD')
-        setAccounts(rsd)
-        if (rsd.length > 0) setBankAccountId(String(rsd[0].id))
-      })
-      .catch(() => setAccounts([]))
-      .finally(() => setAccountsLoading(false))
-  }, [])
+function SellModal({ fundId, security, onClose, onSuccess }) {
+  const [quantity, setQuantity]     = useState('')
+  const [error, setError]           = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit() {
-    const n = Number(amount)
-    if (!amount || isNaN(n) || n <= 0) { setAmountError('Please enter a valid amount.'); return }
-    if (n < fund.minimumContribution) { setAmountError(`Minimum contribution is ${fmt(fund.minimumContribution, 'RSD')}.`); return }
-    setAmountError('')
+    const q = Number(quantity)
+    if (!quantity || isNaN(q) || q <= 0 || !Number.isInteger(q)) {
+      setError('Please enter a valid whole number quantity.')
+      return
+    }
+    setError('')
     setSubmitting(true)
     try {
-      await fundService.invest(fund.id, { sourceAccountId: Number(bankAccountId), amount: n })
+      await fundService.sellFundSecurity(fundId, { ticker: security.ticker, quantity: q })
       onSuccess()
     } finally {
       setSubmitting(false)
@@ -118,98 +55,29 @@ function BankDepositModal({ fund, onClose, onSuccess }) {
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Bank Deposit</p>
-            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
+            <p className="text-xs tracking-widest uppercase text-red-500 mb-0.5">Sell Security</p>
+            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{security.ticker}</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none">×</button>
         </div>
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Amount (RSD) — minimum {fmt(fund.minimumContribution, 'RSD')}</label>
-            <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setAmountError('') }} placeholder={`${fund.minimumContribution}`} className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`} />
-            {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account (RSD)</label>
-            {accountsLoading ? <p className="text-xs text-slate-400">Loading accounts…</p> : accounts.length === 0 ? <p className="text-xs text-slate-400">No RSD bank accounts available.</p> : (
-              <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input-field w-full text-sm">
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.accountNumber} — {a.accountName ?? a.currencyCode}</option>)}
-              </select>
-            )}
-          </div>
+        <div className="px-6 py-5">
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Quantity</label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={quantity}
+            onChange={e => { setQuantity(e.target.value); setError('') }}
+            placeholder="0"
+            className={`input-field w-full text-sm${error ? ' input-error' : ''}`}
+          />
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>
         <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
           <button onClick={onClose} className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2">Cancel</button>
-          <button onClick={handleSubmit} disabled={submitting || accountsLoading || accounts.length === 0 || !amount} className="btn-primary text-xs px-5 py-2 disabled:opacity-50">{submitting ? 'Depositing…' : 'Deposit'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Withdraw Modal ────────────────────────────────────────────────────────────
-
-function WithdrawModal({ fund, isSupervisor, onClose, onSuccess }) {
-  const [amount, setAmount]                         = useState('')
-  const [destinationAccountId, setDestinationAccountId] = useState('')
-  const [accounts, setAccounts]                     = useState([])
-  const [accountsLoading, setAccountsLoading]       = useState(true)
-  const [amountError, setAmountError]               = useState('')
-  const [submitting, setSubmitting]                 = useState(false)
-
-  useEffect(() => {
-    const fetch = isSupervisor ? accountService.getBankAccounts() : accountService.getAccounts()
-    fetch
-      .then(list => {
-        const filtered = isSupervisor ? list.filter(a => a.currencyCode === 'RSD') : list
-        setAccounts(filtered)
-        if (filtered.length > 0) setDestinationAccountId(String(filtered[0].id))
-      })
-      .catch(() => setAccounts([]))
-      .finally(() => setAccountsLoading(false))
-  }, [isSupervisor])
-
-  async function handleSubmit() {
-    const n = Number(amount)
-    if (!amount || isNaN(n) || n <= 0) { setAmountError('Please enter a valid amount.'); return }
-    setAmountError('')
-    setSubmitting(true)
-    try {
-      await fundService.withdraw(fund.id, { destinationAccountId: Number(destinationAccountId), amount: n })
-      onSuccess()
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Withdraw</p>
-            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none">×</button>
-        </div>
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Amount (RSD)</label>
-            <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setAmountError('') }} placeholder="0.00" className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`} />
-            {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Destination Account{isSupervisor ? ' (RSD)' : ''}</label>
-            {accountsLoading ? <p className="text-xs text-slate-400">Loading accounts…</p> : accounts.length === 0 ? <p className="text-xs text-slate-400">No accounts available.</p> : (
-              <select value={destinationAccountId} onChange={e => setDestinationAccountId(e.target.value)} className="input-field w-full text-sm">
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.accountNumber} — {a.accountName ?? a.currencyCode}</option>)}
-              </select>
-            )}
-          </div>
-        </div>
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-          <button onClick={onClose} className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2">Cancel</button>
-          <button onClick={handleSubmit} disabled={submitting || accountsLoading || accounts.length === 0} className="btn-primary text-xs px-5 py-2 disabled:opacity-50">{submitting ? 'Withdrawing…' : 'Withdraw'}</button>
+          <button onClick={handleSubmit} disabled={submitting} className="text-xs px-5 py-2 bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50">
+            {submitting ? 'Selling…' : 'Sell'}
+          </button>
         </div>
       </div>
     </div>
@@ -240,6 +108,14 @@ export default function FundDetailPage() {
   const [error, setError]       = useState(false)
   const [modal, setModal]       = useState(null) // 'invest' | 'deposit' | 'withdraw'
 
+  const [securities, setSecurities]               = useState([])
+  const [securitiesLoading, setSecuritiesLoading] = useState(true)
+  const [sellTarget, setSellTarget]               = useState(null)
+
+  const [perfPeriod, setPerfPeriod]   = useState(PERF_PERIODS[0])
+  const [perfData, setPerfData]       = useState([])
+  const [perfLoading, setPerfLoading] = useState(true)
+
   const isSupervisor = user?.permissions?.isSupervisor
   const isAgent      = user?.permissions?.isAgent
 
@@ -258,7 +134,34 @@ export default function FundDetailPage() {
     }
   }, [id])
 
+  const loadSecurities = useCallback(async () => {
+    setSecuritiesLoading(true)
+    try {
+      const data = await fundService.getFundSecurities(id)
+      setSecurities(Array.isArray(data) ? data : [])
+    } catch {
+      setSecurities([])
+    } finally {
+      setSecuritiesLoading(false)
+    }
+  }, [id])
+
+  const loadPerformance = useCallback(async (period) => {
+    setPerfLoading(true)
+    const { from, to } = periodDates(period.months)
+    try {
+      const data = await fundService.getFundPerformance(id, from, to)
+      setPerfData(Array.isArray(data) ? data : [])
+    } catch {
+      setPerfData([])
+    } finally {
+      setPerfLoading(false)
+    }
+  }, [id])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadSecurities() }, [loadSecurities])
+  useEffect(() => { loadPerformance(perfPeriod) }, [loadPerformance, perfPeriod])
 
   if (loading) {
     return (
@@ -314,10 +217,10 @@ export default function FundDetailPage() {
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard label="Fund Value"           value={fmt(fund.fundValue   ?? 0, 'RSD')} />
-          <StatCard label="Liquid Assets"        value={fmt(fund.liquidAssets ?? 0, 'RSD')} />
-          <StatCard label="Profit"               value={`${(fund.profit ?? 0) >= 0 ? '+' : ''}${fmt(fund.profit ?? 0, 'RSD')}`} highlight={profitColor} />
-          <StatCard label="Min. Contribution"    value={fmt(fund.minimumContribution ?? 0, 'RSD')} />
+          <StatCard label="Fund Value"        value={fmt(fund.fundValue        ?? 0, 'RSD')} />
+          <StatCard label="Liquid Assets"     value={fmt(fund.liquidAssets     ?? 0, 'RSD')} />
+          <StatCard label="Profit"            value={`${(fund.profit ?? 0) >= 0 ? '+' : ''}${fmt(fund.profit ?? 0, 'RSD')}`} highlight={profitColor} />
+          <StatCard label="Min. Contribution" value={fmt(fund.minimumContribution ?? 0, 'RSD')} />
         </div>
 
         {/* Action buttons */}
@@ -327,34 +230,107 @@ export default function FundDetailPage() {
               <button onClick={() => setModal('invest')} className="btn-primary text-xs px-5 py-2">Invest</button>
             )}
             {isSupervisor && (
-              <button
-                onClick={() => setModal('deposit')}
-                className="text-xs px-5 py-2 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200"
-              >
+              <button onClick={() => setModal('deposit')} className="text-xs px-5 py-2 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200">
                 Deposit
               </button>
             )}
-            {(isAgent || isSupervisor) && (
-              <button
-                onClick={() => setModal('withdraw')}
-                className="text-xs px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
-              >
-                Withdraw
-              </button>
-            )}
+            <button onClick={() => setModal('withdraw')} className="text-xs px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
+              Withdraw
+            </button>
           </div>
         )}
 
-        {/* Securities stub */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 mb-4">
-          <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 mb-3">Securities Holdings</p>
-          <p className="text-sm text-slate-400 dark:text-slate-500">Securities holdings will appear here once the fund portfolio API is available.</p>
+        {/* Securities table */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden mb-4">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+            <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400">Securities Holdings</p>
+          </div>
+          {securitiesLoading ? (
+            <div className="px-6 py-8 text-center text-sm text-slate-400 dark:text-slate-500">Loading securities…</div>
+          ) : securities.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm text-slate-400 dark:text-slate-500">No securities in this fund.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800">
+                    {['Ticker', 'Price', 'Change', 'Volume', 'Initial Margin Cost', 'Acquisition Date'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                    {isSupervisor && <th className="px-5 py-3" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {securities.map(s => {
+                    const changeColor = (s.change ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+                    return (
+                      <tr key={s.ticker} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-5 py-3 font-mono font-medium text-slate-900 dark:text-white">{s.ticker}</td>
+                        <td className="px-5 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.price ?? 0)}</td>
+                        <td className={`px-5 py-3 tabular-nums font-medium ${changeColor}`}>
+                          {(s.change ?? 0) >= 0 ? '+' : ''}{fmt(s.change ?? 0)}
+                        </td>
+                        <td className="px-5 py-3 tabular-nums text-slate-700 dark:text-slate-300">{s.volume?.toLocaleString('sr-RS') ?? '—'}</td>
+                        <td className="px-5 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.initialMarginCost ?? 0)}</td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{s.acquisitionDate ? String(s.acquisitionDate).slice(0, 10) : '—'}</td>
+                        {isSupervisor && (
+                          <td className="px-5 py-3 text-right">
+                            <button onClick={() => setSellTarget(s)} className="text-xs px-3 py-1 border border-red-400 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              Sell
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {/* Performance stub */}
+        {/* Performance chart */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
-          <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 mb-3">Performance History</p>
-          <p className="text-sm text-slate-400 dark:text-slate-500">Fund performance history will appear here.</p>
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+            <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium">Performance History</p>
+            <div className="flex gap-1">
+              {PERF_PERIODS.map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => setPerfPeriod(p)}
+                  className={`text-xs px-3 py-1 transition-colors ${
+                    perfPeriod.label === p.label
+                      ? 'bg-violet-600 text-white'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {perfLoading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <p className="text-slate-400 dark:text-slate-500 text-sm">Loading…</p>
+            </div>
+          ) : perfData.length === 0 ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <p className="text-slate-400 dark:text-slate-500 text-sm">No performance data available.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart
+                data={[...perfData].sort((a, b) => (a.date < b.date ? -1 : 1)).map(r => ({ date: String(r.date).slice(0, 10), value: r.value ?? 0 }))}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => fmt(v)} width={80} />
+                <Tooltip formatter={v => [fmt(v), 'Value']} contentStyle={{ fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff' }} />
+                <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
       </div>
@@ -367,6 +343,9 @@ export default function FundDetailPage() {
       )}
       {modal === 'withdraw' && (
         <WithdrawModal fund={fund} isSupervisor={isSupervisor} onClose={() => setModal(null)} onSuccess={() => { setModal(null); load() }} />
+      )}
+      {sellTarget && (
+        <SellModal fundId={id} security={sellTarget} onClose={() => setSellTarget(null)} onSuccess={() => { setSellTarget(null); loadSecurities() }} />
       )}
     </div>
   )

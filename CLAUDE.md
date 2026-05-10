@@ -11,9 +11,21 @@ Client-facing and employee banking portal built with React + Vite + Tailwind CSS
 - Axios for API calls — two instances: `src/services/apiClient.js` (employee) and `src/services/clientApiClient.js` (client)
 - Vite dev server
 
+## How to run the app
+The full stack is started via the **EXBanka-4-Infrastructure** repo using Docker Compose:
+```bash
+# from EXBanka-4-Infrastructure/
+docker compose up        # start everything (builds images on first run)
+docker compose up -d     # start in background
+docker compose up --build frontend  # rebuild frontend after code changes
+```
+The app is accessed at **http://localhost:3000** (nginx serves the built React app).
+
+The `npm run dev` commands below are for standalone frontend development only (Vite dev server at http://localhost:5173), not the integrated stack.
+
 ## Commands
 ```bash
-npm run dev      # start dev server at http://localhost:5173
+npm run dev      # standalone dev server at http://localhost:5173 (not the full stack)
 npm run build    # production build
 npm run preview  # preview production build
 ```

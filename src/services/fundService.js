@@ -40,4 +40,29 @@ export const fundService = {
     })
     return data
   },
+
+  async getFundSecurities(id) {
+    const { data } = await apiClient.get(`/investment/funds/${id}/securities`)
+    return data
+  },
+
+  async sellFundSecurity(fundId, payload) {
+    const { data } = await apiClient.post(`/investment/funds/${fundId}/securities/sell`, payload)
+    return data
+  },
+
+  async getFundPerformance(id, from, to) {
+    const { data } = await apiClient.get(`/investment/funds/${id}/performance`, { params: { from, to } })
+    return data
+  },
+
+  async getMyPositions() {
+    const { data } = await apiClient.get('/investment/funds/my-positions')
+    return Array.isArray(data) ? data : (data.positions ?? data.items ?? [])
+  },
+
+  async getManagedFunds(managerId) {
+    const { data } = await apiClient.get('/investment/funds', { params: { managerId } })
+    return Array.isArray(data) ? data : (data.funds ?? data.items ?? [])
+  },
 }
