@@ -104,7 +104,7 @@ export default function PortfolioPage() {
   }, [activeTab.key, loadMyFunds])
 
   const displayed = activeTab.key === 'public'
-    ? holdings.filter(h => h.isPublic)
+    ? holdings.filter(h => h.is_public)
     : holdings
 
   return (
