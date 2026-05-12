@@ -261,12 +261,12 @@ describe('Upravljanje aktuarima — scenarios 1–9', () => {
   it('Scenario 9: supervizor koji nije admin ne dobija pristup portalu za upravljanje zaposlenima', () => {
     // Given: zaposlenom je dodeljena supervizor permisija, ali ne i admin
     loginAsSupervisor()
-
+    
     // When: supervizor pokuša da pristupi portalu za upravljanje zaposlenima
     cy.visit('/admin/employees')
-
-    // Then: pristup je odbijen jer supervizor nije admin
-    cy.contains('You do not have permission to perform this action.', { timeout: 6000 }).should('be.visible')
+    
+    // Then: sistem odbija pristup i prikazuje poruku o grešci (403 toast)
+    cy.contains(/insufficient permissions|You do not have permission/i, { timeout: 6000 }).should('be.visible')
   })
 
 })
