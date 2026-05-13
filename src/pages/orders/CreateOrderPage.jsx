@@ -145,8 +145,9 @@ export default function CreateOrderPage() {
         stopValue:  stopValue  !== '' ? Number(stopValue)  : undefined,
         isAon,
         isMargin,
-        accountId:  Number(accountId),
-        fundId:     buyFor === 'fund' ? Number(fundId) : undefined,
+        accountId:   Number(accountId),
+        fundId:      buyFor === 'fund' ? Number(fundId) : undefined,
+        purchaseFor: buyFor === 'fund' ? 'FUND' : undefined,
       })
       setSubmitted(true)
       setShowConfirm(false)

@@ -5,7 +5,7 @@ export const orderService = {
   /**
    * Place a new order.
    */
-  async createOrder({ assetId, quantity, direction, limitValue, stopValue, isAon, isMargin, accountId, fundId }) {
+  async createOrder({ assetId, quantity, direction, limitValue, stopValue, isAon, isMargin, accountId, fundId, purchaseFor }) {
     const { data } = await apiClient.post('/orders', {
       assetId,
       quantity,
@@ -16,6 +16,7 @@ export const orderService = {
       isMargin,
       accountId,
       ...(fundId != null ? { fundId } : {}),
+      ...(purchaseFor ? { purchaseFor } : {}),
     })
     return data
   },
