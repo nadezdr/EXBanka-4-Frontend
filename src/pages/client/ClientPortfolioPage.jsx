@@ -309,18 +309,18 @@ export default function ClientPortfolioPage() {
                       return (
                         <tr key={pos.fundId ?? pos.id ?? i} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
                           <td className="px-4 py-3">
-                            <Link to={`/investment/funds/${pos.fundId ?? pos.id}`} className="text-violet-600 dark:text-violet-400 hover:underline font-medium">
+                            <Link to={`/client/investment/funds/${pos.fundId ?? pos.id}`} className="text-violet-600 dark:text-violet-400 hover:underline font-medium">
                               {pos.fundName ?? pos.name}
                             </Link>
                           </td>
                           <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.fundValue ?? 0, 'RSD')}</td>
-                          <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.myInvestedAmount ?? pos.investedAmount ?? 0, 'RSD')}</td>
-                          <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.myCurrentValue ?? pos.currentValue ?? 0, 'RSD')}</td>
+                          <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.totalInvestedAmount ?? pos.myInvestedAmount ?? 0, 'RSD')}</td>
+                          <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300">{fmt(pos.currentPositionValue ?? pos.myCurrentValue ?? 0, 'RSD')}</td>
                           <td className={`px-4 py-3 tabular-nums font-medium ${profitColor}`}>
                             {profitVal >= 0 ? '+' : ''}{fmt(profitVal, 'RSD')}
                           </td>
                           <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-400">
-                            {(pos.sharePercentage ?? pos.share ?? 0).toFixed(2)}%
+                            {(pos.fundPercentage ?? pos.sharePercentage ?? 0).toFixed(2)}%
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-2">

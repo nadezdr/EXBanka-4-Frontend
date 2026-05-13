@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useWindowTitle from '../../hooks/useWindowTitle'
-import { useAuth } from '../../context/AuthContext'
-import { fundService } from '../../services/fundService'
+import ClientPortalLayout from '../../layouts/ClientPortalLayout'
+import { clientPortfolioService } from '../../services/clientPortfolioService'
 import { fmt } from '../../utils/formatting'
-import { InvestModal, BankDepositModal } from '../../components/funds/FundModals'
+import { ClientInvestModal } from '../../components/funds/FundModals'
 
 function truncate(s, n = 80) {
   return s?.length > n ? s.slice(0, n) + '…' : (s ?? '—')
@@ -15,10 +15,9 @@ function SortIcon({ sortCol, col, sortOrder }) {
   return <span className="text-violet-500 ml-1">{sortOrder === 'ASC' ? '↑' : '↓'}</span>
 }
 
-export default function FundsDiscoveryPage() {
+export default function ClientFundsDiscoveryPage() {
   useWindowTitle('Investment Funds | AnkaBanka')
-  const { user } = useAuth()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
 
   const [funds, setFunds]         = useState([])
   const [loading, setLoading]     = useState(true)
@@ -26,18 +25,14 @@ export default function FundsDiscoveryPage() {
   const [search, setSearch]       = useState('')
   const [sortCol, setSortCol]     = useState(null)
   const [sortOrder, setSortOrder] = useState('ASC')
-  const [investModal, setInvestModal]   = useState(null)
-  const [depositModal, setDepositModal] = useState(null)
-
-  const isSupervisor = user?.permissions?.isSupervisor
-  const isAgent      = user?.permissions?.isAgent
+  const [investModal, setInvestModal] = useState(null)
 
   const loadFunds = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await fundService.getFunds()
-      setFunds(Array.isArray(data) ? data : (data.funds ?? data.items ?? []))
+      const data = await clientPortfolioService.getFunds()
+      setFunds(data)
     } catch {
       setError(true)
     } finally {
@@ -77,15 +72,15 @@ export default function FundsDiscoveryPage() {
   }
 
   return (
+    <ClientPortalLayout>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 px-6 py-16">
       <div className="max-w-7xl mx-auto">
 
-        <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-4">Employee Portal</p>
+        <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-4">Client Portal</p>
         <h1 className="font-serif text-4xl font-light text-slate-900 dark:text-white mb-3">Investment Funds</h1>
         <div className="w-10 h-px bg-violet-500 dark:bg-violet-400 mb-8" />
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex items-center gap-4 mb-6 flex-wrap">
           <input
             type="text"
             value={search}
@@ -93,11 +88,6 @@ export default function FundsDiscoveryPage() {
             placeholder="Search by fund name…"
             className="input-field w-full max-w-sm text-sm"
           />
-          {isSupervisor && (
-            <button onClick={() => navigate('/investment/funds/new')} className="btn-primary text-xs px-5 py-2 shrink-0">
-              + Create Fund
-            </button>
-          )}
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
@@ -125,7 +115,7 @@ export default function FundsDiscoveryPage() {
                     <th className={thClass(true)} onClick={() => handleSort('minimumContribution')}>
                       Min. Contribution<SortIcon sortCol={sortCol} col="minimumContribution" sortOrder={sortOrder} />
                     </th>
-                    {(isAgent || isSupervisor) && <th className={thClass(false)}>Actions</th>}
+                    <th className={thClass(false)}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,7 +127,7 @@ export default function FundsDiscoveryPage() {
                     sorted.map((fund, i) => (
                       <tr key={fund.id} className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/20'}`}>
                         <td className="px-4 py-3">
-                          <button onClick={() => navigate(`/investment/funds/${fund.id}`)} className="text-violet-600 dark:text-violet-400 hover:underline font-medium text-left">
+                          <button onClick={() => navigate(`/client/investment/funds/${fund.id}`)} className="text-violet-600 dark:text-violet-400 hover:underline font-medium text-left">
                             {fund.name}
                           </button>
                         </td>
@@ -147,17 +137,9 @@ export default function FundsDiscoveryPage() {
                           {(fund.profit ?? 0) >= 0 ? '+' : ''}{fmt(fund.profit ?? 0, 'RSD')}
                         </td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(fund.minimumContribution, 'RSD')}</td>
-                        {(isAgent || isSupervisor) && (
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {isSupervisor ? (
-                                <button onClick={() => setDepositModal(fund)} className="btn-primary text-xs px-3 py-1">Invest</button>
-                              ) : isAgent && (
-                                <button onClick={() => setInvestModal(fund)} className="btn-primary text-xs px-3 py-1">Invest</button>
-                              )}
-                            </div>
-                          </td>
-                        )}
+                        <td className="px-4 py-3">
+                          <button onClick={() => setInvestModal(fund)} className="btn-primary text-xs px-3 py-1">Invest</button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -175,11 +157,9 @@ export default function FundsDiscoveryPage() {
       </div>
 
       {investModal && (
-        <InvestModal fund={investModal} onClose={() => setInvestModal(null)} onSuccess={() => { setInvestModal(null); loadFunds() }} />
-      )}
-      {depositModal && (
-        <BankDepositModal fund={depositModal} onClose={() => setDepositModal(null)} onSuccess={() => { setDepositModal(null); loadFunds() }} />
+        <ClientInvestModal fund={investModal} onClose={() => setInvestModal(null)} onSuccess={() => { setInvestModal(null); loadFunds() }} />
       )}
     </div>
+    </ClientPortalLayout>
   )
 }
