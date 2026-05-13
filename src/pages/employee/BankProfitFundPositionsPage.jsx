@@ -20,9 +20,8 @@ function DepositModal({ position, onClose, onSuccess }) {
   useEffect(() => {
     accountService.getBankAccounts()
       .then(list => {
-        const rsd = list.filter(a => a.currencyCode === 'RSD')
-        setAccounts(rsd)
-        if (rsd.length > 0) setAccountId(String(rsd[0].id))
+        setAccounts(list)
+        if (list.length > 0) setAccountId(String(list[0].id))
       })
       .catch(() => setAccounts([]))
       .finally(() => setAccountsLoading(false))
@@ -46,7 +45,7 @@ function DepositModal({ position, onClose, onSuccess }) {
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Deposit</p>
+            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-0.5">Invest</p>
             <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{position.fundName}</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl leading-none">×</button>
@@ -64,11 +63,11 @@ function DepositModal({ position, onClose, onSuccess }) {
             {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account (RSD)</label>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account</label>
             {accountsLoading ? (
               <p className="text-xs text-slate-400">Loading accounts…</p>
             ) : accounts.length === 0 ? (
-              <p className="text-xs text-slate-400">No RSD bank accounts available.</p>
+              <p className="text-xs text-slate-400">No bank accounts available.</p>
             ) : (
               <select value={accountId} onChange={e => setAccountId(e.target.value)} className="input-field w-full text-sm">
                 {accounts.map(a => (
@@ -85,7 +84,7 @@ function DepositModal({ position, onClose, onSuccess }) {
             disabled={submitting || accountsLoading || accounts.length === 0 || !amount}
             className="btn-primary text-xs px-5 py-2 disabled:opacity-50"
           >
-            {submitting ? 'Depositing…' : 'Deposit'}
+            {submitting ? 'Investing…' : 'Invest'}
           </button>
         </div>
       </div>
@@ -106,9 +105,8 @@ function WithdrawModal({ position, onClose, onSuccess }) {
   useEffect(() => {
     accountService.getBankAccounts()
       .then(list => {
-        const rsd = list.filter(a => a.currencyCode === 'RSD')
-        setAccounts(rsd)
-        if (rsd.length > 0) setAccountId(String(rsd[0].id))
+        setAccounts(list)
+        if (list.length > 0) setAccountId(String(list[0].id))
       })
       .catch(() => setAccounts([]))
       .finally(() => setAccountsLoading(false))
@@ -150,11 +148,11 @@ function WithdrawModal({ position, onClose, onSuccess }) {
             {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account (RSD)</label>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bank Account</label>
             {accountsLoading ? (
               <p className="text-xs text-slate-400">Loading accounts…</p>
             ) : accounts.length === 0 ? (
-              <p className="text-xs text-slate-400">No RSD bank accounts available.</p>
+              <p className="text-xs text-slate-400">No bank accounts available.</p>
             ) : (
               <select value={accountId} onChange={e => setAccountId(e.target.value)} className="input-field w-full text-sm">
                 {accounts.map(a => (
@@ -315,9 +313,9 @@ export default function BankProfitFundPositionsPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => setModal({ type: 'deposit', position: pos })}
-                            className="px-3 py-1.5 text-xs tracking-widest uppercase font-medium bg-violet-600 hover:bg-violet-700 text-white rounded transition-colors"
+                            className="btn-primary text-xs px-3 py-1"
                           >
-                            Deposit
+                            Invest
                           </button>
                           <button
                             onClick={() => setModal({ type: 'withdraw', position: pos })}

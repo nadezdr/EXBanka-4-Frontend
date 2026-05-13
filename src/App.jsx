@@ -72,6 +72,8 @@ import BankProfitActuariesPage from './pages/employee/BankProfitActuariesPage'
 import FundsDiscoveryPage from './pages/investment/FundsDiscoveryPage'
 import CreateFundPage from './pages/investment/CreateFundPage'
 import FundDetailPage from './pages/investment/FundDetailPage'
+import ClientFundsDiscoveryPage from './pages/client/ClientFundsDiscoveryPage'
+import ClientFundDetailPage from './pages/client/ClientFundDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
@@ -159,6 +161,8 @@ function App() {
           <Route path="/client/otc/negotiations"       element={<ClientOtcNegotiationsPage />} />
           <Route path="/client/otc/negotiations/:id"   element={<ClientOtcNegotiationDetailPage />} />
           <Route path="/client/otc/contracts"          element={<ClientOtcContractsPage />} />
+          <Route path="/client/investment/funds"     element={<ClientFundsDiscoveryPage />} />
+          <Route path="/client/investment/funds/:id" element={<ClientFundDetailPage />} />
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

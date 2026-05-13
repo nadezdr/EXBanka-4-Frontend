@@ -199,8 +199,8 @@ export default function PortfolioPage() {
                       <td className="px-4 py-3"><ActiveBadge active={f.active} /></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button onClick={() => setFundModal({ type: 'deposit', fund: f })} className="text-xs px-3 py-1 border border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400 hover:bg-violet-600 dark:hover:bg-violet-500 hover:text-white transition-all duration-200">
-                            Deposit
+                          <button onClick={() => setFundModal({ type: 'deposit', fund: f })} className="btn-primary text-xs px-3 py-1">
+                            Invest
                           </button>
                           <button onClick={() => setFundModal({ type: 'withdraw', fund: f })} className="text-xs px-3 py-1 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
                             Withdraw
