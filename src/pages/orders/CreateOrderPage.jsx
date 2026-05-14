@@ -41,8 +41,9 @@ export default function CreateOrderPage() {
 
   if (!canAny(['isAgent', 'isSupervisor', 'isAdmin'])) return <Navigate to="/" replace />
 
-  const ticker    = searchParams.get('ticker')    ?? ''
-  const direction = searchParams.get('direction') ?? 'BUY'
+  const ticker             = searchParams.get('ticker')    ?? ''
+  const direction          = searchParams.get('direction') ?? 'BUY'
+  const preselectedFundId  = searchParams.get('fundId')   ?? ''
 
   const [listing,     setListing]     = useState(null)
   const [accounts,    setAccounts]    = useState([])
@@ -58,9 +59,9 @@ export default function CreateOrderPage() {
   const [accountId,  setAccountId]  = useState('')
 
   // Supervisor fund selection
-  const [buyFor,       setBuyFor]       = useState('bank')
+  const [buyFor,       setBuyFor]       = useState(isSupervisor && preselectedFundId ? 'fund' : 'bank')
   const [funds,        setFunds]        = useState([])
-  const [fundId,       setFundId]       = useState('')
+  const [fundId,       setFundId]       = useState(preselectedFundId)
   const [loadingFunds, setLoadingFunds] = useState(false)
 
   const [exchangeStatus, setExchangeStatus] = useState(null)
@@ -100,7 +101,12 @@ export default function CreateOrderPage() {
         try {
           const managed = await fundService.getManagedFunds(user.id)
           setFunds(managed)
-          if (managed.length > 0) setFundId(String(managed[0].id))
+          const hasPreselected = preselectedFundId && managed.some(f => String(f.id) === preselectedFundId)
+          if (hasPreselected) {
+            setFundId(preselectedFundId)
+          } else if (managed.length > 0) {
+            setFundId(String(managed[0].id))
+          }
         } catch {
           // non-critical — fund selector will show empty
         } finally {
@@ -146,8 +152,8 @@ export default function CreateOrderPage() {
         isAon,
         isMargin,
         accountId:   Number(accountId),
-        fundId:      buyFor === 'fund' ? Number(fundId) : undefined,
-        purchaseFor: buyFor === 'fund' ? 'FUND' : undefined,
+        fundId:      isSupervisor && buyFor === 'fund' ? Number(fundId) : undefined,
+        purchaseFor: isSupervisor && buyFor === 'fund' ? 'FUND' : isSupervisor && buyFor === 'bank' ? 'BANK' : undefined,
       })
       setSubmitted(true)
       setShowConfirm(false)

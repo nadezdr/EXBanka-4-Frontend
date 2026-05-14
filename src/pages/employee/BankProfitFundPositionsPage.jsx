@@ -30,6 +30,9 @@ function DepositModal({ position, onClose, onSuccess }) {
   async function handleSubmit() {
     const n = Number(amount)
     if (!amount || isNaN(n) || n <= 0) { setAmountError('Please enter a valid amount.'); return }
+    if (position.minimumContribution && n < position.minimumContribution) {
+      setAmountError(`Minimum contribution is ${fmt(position.minimumContribution, 'RSD')}.`); return
+    }
     setAmountError('')
     setSubmitting(true)
     try {
@@ -60,6 +63,9 @@ function DepositModal({ position, onClose, onSuccess }) {
               placeholder="0.00"
               className={`input-field w-full text-sm${amountError ? ' input-error' : ''}`}
             />
+            {position.minimumContribution > 0 && !amountError && (
+              <p className="text-xs text-slate-400 mt-1">Minimum: {fmt(position.minimumContribution, 'RSD')}</p>
+            )}
             {amountError && <p className="text-xs text-red-500 mt-1">{amountError}</p>}
           </div>
           <div>
@@ -204,12 +210,13 @@ export default function BankProfitFundPositionsPage() {
         .map(f => {
           const pos = posMap.get(f.id)
           return {
-            fundId:           f.id,
-            fundName:         f.name,
-            managerName:      f.managerName ?? pos?.managerName ?? '—',
-            bankSharePercent: pos?.bankSharePercent ?? 0,
-            bankShareRSD:     pos?.bankShareRSD     ?? 0,
-            profitRSD:        pos?.profitRSD        ?? 0,
+            fundId:              f.id,
+            fundName:            f.name,
+            managerName:         f.managerName ?? pos?.managerName ?? '—',
+            bankSharePercent:    pos?.bankSharePercent ?? 0,
+            bankShareRSD:        pos?.bankShareRSD     ?? 0,
+            profitRSD:           pos?.profitRSD        ?? 0,
+            minimumContribution: f.minimumContribution ?? 0,
           }
         })
       setPositions(rows)
@@ -272,7 +279,7 @@ export default function BankProfitFundPositionsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                    {['Fund', 'Manager', 'Bank Share %', 'Bank Share (RSD)', 'Profit (RSD)', 'Actions'].map(h => (
+                    {['Fund', 'Manager', 'Bank Share %', 'Bank Share (RSD)', 'Profit (RSD)', 'Min. Contribution', 'Actions'].map(h => (
                       <th key={h} className="px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
                         {h}
                       </th>
@@ -308,6 +315,9 @@ export default function BankProfitFundPositionsPage() {
                           : 'text-red-500 dark:text-red-400'
                       }`}>
                         {pos.profitRSD != null ? fmt(pos.profitRSD, 'RSD') : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 tabular-nums text-xs">
+                        {pos.minimumContribution > 0 ? fmt(pos.minimumContribution, 'RSD') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">

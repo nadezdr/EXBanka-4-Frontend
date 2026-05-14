@@ -326,7 +326,7 @@ export default function FundDetailPage() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart
-                data={[...perfData].sort((a, b) => (a.date < b.date ? -1 : 1)).map(r => ({ date: String(r.date).slice(0, 10), value: r.value ?? 0 }))}
+                data={[...perfData].sort((a, b) => (a.date < b.date ? -1 : 1)).map(r => ({ date: String(r.date).slice(0, 10), value: r.fundValue ?? 0 }))}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

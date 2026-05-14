@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import useWindowTitle from '../../hooks/useWindowTitle'
 import { useAuth } from '../../context/AuthContext'
 import { securitiesService } from '../../services/securitiesService'
@@ -52,6 +52,8 @@ export default function SecuritiesPage() {
   useWindowTitle('Securities | AnkaBanka')
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const buyForFund = searchParams.get('buyForFund') ?? ''
 
   const [activeTab, setActiveTab] = useState(TABS[0])
   const [listings, setListings]   = useState([])
@@ -332,7 +334,7 @@ export default function SecuritiesPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2 justify-end">
                               <button
-                                onClick={() => navigate(`/orders/new?ticker=${l.ticker}&direction=BUY`)}
+                                onClick={() => navigate(`/orders/new?ticker=${l.ticker}&direction=BUY${buyForFund ? `&fundId=${buyForFund}` : ''}`)}
                                 className="btn-primary text-xs px-3 py-1"
                               >
                                 Buy
