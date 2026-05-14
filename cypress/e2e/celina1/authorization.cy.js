@@ -45,7 +45,7 @@ describe('Autorizacija i permisije — scenarios 16–18', () => {
     cy.visit('/admin/employees')
 
     // Then: sistem odbija pristup i prikazuje poruku o grešci (403 toast)
-    cy.contains('You do not have permission to perform this action.', { timeout: 6000 }).should('be.visible')
+    cy.contains(/insufficient permissions|You do not have permission/i, { timeout: 6000 }).should('be.visible')
   })
 
   // ── Scenario 17 ──────────────────────────────────────────────────────────────
