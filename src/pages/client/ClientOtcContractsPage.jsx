@@ -167,6 +167,7 @@ export default function ClientOtcContractsPage() {
                     <th className={thClass()}>Premium</th>
                     <th className={thClass()}>Settlement Date</th>
                     <th className={thClass()}>Seller</th>
+                    <th className={thClass()}>Status</th>
                     <th className={thClass()}>Profit</th>
                     <th className={thClass()} />
                   </tr>
@@ -174,7 +175,7 @@ export default function ClientOtcContractsPage() {
                 <tbody>
                   {contracts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
+                      <td colSpan={9} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
                         No {activeTab.label.toLowerCase()} contracts found.
                       </td>
                     </tr>
@@ -193,6 +194,9 @@ export default function ClientOtcContractsPage() {
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{fmtDate(c.settlementDate)}</td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs">
                           <div>{c.sellerName ?? '—'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
+                          {c.status ?? '—'}
                         </td>
                         <td className={`px-4 py-3 font-medium tabular-nums ${
                           c.profit == null

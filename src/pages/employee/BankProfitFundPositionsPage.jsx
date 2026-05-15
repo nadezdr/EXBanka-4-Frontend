@@ -191,10 +191,11 @@ export default function BankProfitFundPositionsPage() {
 
   if (!can('isSupervisor')) return <Navigate to="/" replace />
 
-  const [positions,  setPositions]  = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState(false)
-  const [modal,      setModal]      = useState(null) // { type: 'deposit'|'withdraw', position }
+  const [positions,   setPositions]  = useState([])
+  const [loading,     setLoading]    = useState(true)
+  const [error,       setError]      = useState(false)
+  const [modal,       setModal]      = useState(null) // { type: 'deposit'|'withdraw', position }
+  const [successMsg,  setSuccessMsg] = useState('')
 
   async function load() {
     setLoading(true)
@@ -231,6 +232,7 @@ export default function BankProfitFundPositionsPage() {
 
   function handleModalSuccess() {
     setModal(null)
+    setSuccessMsg('Success!')
     load()
   }
 
@@ -259,6 +261,10 @@ export default function BankProfitFundPositionsPage() {
             Fund Positions
           </NavLink>
         </div>
+
+        {successMsg && (
+          <p className="text-emerald-600 dark:text-emerald-400 text-sm mb-4">{successMsg}</p>
+        )}
 
         {/* Table */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -322,13 +328,13 @@ export default function BankProfitFundPositionsPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => setModal({ type: 'deposit', position: pos })}
+                            onClick={() => { setSuccessMsg(''); setModal({ type: 'deposit', position: pos }) }}
                             className="btn-primary text-xs px-3 py-1"
                           >
                             Invest
                           </button>
                           <button
-                            onClick={() => setModal({ type: 'withdraw', position: pos })}
+                            onClick={() => { setSuccessMsg(''); setModal({ type: 'withdraw', position: pos }) }}
                             className="px-3 py-1.5 text-xs tracking-widest uppercase font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors"
                           >
                             Withdraw

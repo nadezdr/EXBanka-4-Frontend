@@ -3,7 +3,7 @@ import { accountService } from '../../services/accountService'
 import { fundService } from '../../services/fundService'
 import { clientApiClient } from '../../services/clientApiClient'
 import { clientPortfolioService } from '../../services/clientPortfolioService'
-import { fmt } from '../../utils/formatting'
+import { fmt, fundErrorMessage } from '../../utils/formatting'
 
 // ── Invest Modal (agents — uses employee accounts) ────────────────────────────
 
@@ -231,6 +231,8 @@ export function ClientInvestModal({ fund, onClose, onSuccess }) {
   const [accountsLoading, setAccountsLoading] = useState(true)
   const [amountError, setAmountError]         = useState('')
   const [submitting, setSubmitting]           = useState(false)
+  const [success, setSuccess]                 = useState(false)
+  const [submitError, setSubmitError]         = useState('')
 
   useEffect(() => {
     clientApiClient.get('/api/accounts/my')
@@ -258,10 +260,31 @@ export function ClientInvestModal({ fund, onClose, onSuccess }) {
     setSubmitting(true)
     try {
       await clientPortfolioService.investInFund(fund.id, { sourceAccountId: Number(sourceAccountId), amount: Number(amount) })
-      onSuccess()
+      setSuccess(true)
+    } catch (e) {
+      setSubmitError(fundErrorMessage(e, 'invest'))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <p className="text-xs tracking-widest uppercase text-emerald-500 mb-0.5">Success</p>
+            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
+          </div>
+          <div className="px-6 py-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Investment successful.</p>
+          </div>
+          <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <button onClick={onSuccess} className="btn-primary text-xs px-5 py-2">OK</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -291,6 +314,7 @@ export function ClientInvestModal({ fund, onClose, onSuccess }) {
             )}
           </div>
         </div>
+        {submitError && <p className="px-6 pb-2 text-xs text-red-500">{submitError}</p>}
         <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
           <button onClick={onClose} className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2">Cancel</button>
           <button onClick={handleSubmit} disabled={submitting || accountsLoading || accounts.length === 0} className="btn-primary text-xs px-5 py-2 disabled:opacity-50">{submitting ? 'Investing…' : 'Invest'}</button>
@@ -310,6 +334,9 @@ export function ClientWithdrawModal({ fund, onClose, onSuccess }) {
   const [amountError, setAmountError]               = useState('')
   const [submitting, setSubmitting]                 = useState(false)
   const [pending, setPending]                       = useState(false)
+  const [success, setSuccess]                       = useState(false)
+  const [commission, setCommission]                 = useState(null)
+  const [submitError, setSubmitError]               = useState('')
 
   useEffect(() => {
     clientApiClient.get('/api/accounts/my')
@@ -332,11 +359,36 @@ export function ClientWithdrawModal({ fund, onClose, onSuccess }) {
       if (result?.pending) {
         setPending(true)
       } else {
-        onSuccess()
+        if (result?.commission != null) setCommission(result.commission)
+        setSuccess(true)
       }
+    } catch (e) {
+      setSubmitError(fundErrorMessage(e, 'withdraw'))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <p className="text-xs tracking-widest uppercase text-emerald-500 mb-0.5">Success</p>
+            <h2 className="font-serif text-lg font-light text-slate-900 dark:text-white">{fund.name}</h2>
+          </div>
+          <div className="px-6 py-5 flex flex-col gap-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Withdrawal successful.</p>
+            {commission != null && (
+              <p className="text-sm text-slate-600 dark:text-slate-300">Commission: {fmt(commission, 'RSD')}</p>
+            )}
+          </div>
+          <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <button onClick={onSuccess} className="btn-primary text-xs px-5 py-2">OK</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (pending) {
@@ -383,6 +435,7 @@ export function ClientWithdrawModal({ fund, onClose, onSuccess }) {
             )}
           </div>
         </div>
+        {submitError && <p className="px-6 pb-2 text-xs text-red-500">{submitError}</p>}
         <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
           <button onClick={onClose} className="text-xs tracking-widest uppercase font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-4 py-2">Cancel</button>
           <button onClick={handleSubmit} disabled={submitting || accountsLoading || accounts.length === 0} className="btn-primary text-xs px-5 py-2 disabled:opacity-50">{submitting ? 'Withdrawing…' : 'Withdraw'}</button>

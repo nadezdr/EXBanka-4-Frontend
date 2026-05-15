@@ -46,48 +46,51 @@ describe('Portal OTC Ponude i Ugovori — scenarios 23–28', () => {
     // Given: postoje ponude sa različitim odstupanjima cene
     loginAsClient()
 
-    const marketPrice = 100
-    cy.intercept('GET', '**/otc/negotiations', {
+    // Intercept securities listings to provide market prices for color calculation
+    cy.intercept('GET', 'http://localhost:8083/securities*', (req) => {
+      const url = new URL(req.url)
+      const ticker = url.searchParams.get('ticker') || ''
+      req.reply({ statusCode: 200, body: { items: [{ ticker, price: 100 }] } })
+    })
+
+    cy.intercept('GET', 'http://localhost:8083/otc/negotiations', {
       statusCode: 200,
       body: [
-        // 3% deviation — green
+        // 3% deviation — emerald (≤5%)
         {
           id: 'neg-1',
           ticker: 'AAPL',
           amount: 10,
-          pricePerShare: 103,
+          pricePerStock: 103,
           settlementDate: '2026-12-01',
           premium: 0,
           lastModified: new Date().toISOString(),
           status: 'ACTIVE',
           initiatedByMe: true,
-          marketPrice,
         },
-        // 12% deviation — yellow
+        // 12% deviation — amber (5-20%)
         {
           id: 'neg-2',
           ticker: 'MSFT',
           amount: 5,
-          pricePerShare: 88,
+          pricePerStock: 88,
           settlementDate: '2026-12-01',
           premium: 0,
           lastModified: new Date().toISOString(),
           status: 'ACTIVE',
           initiatedByMe: false,
-          marketPrice,
         },
-        // 25% deviation — red
+        // 25% deviation — red (>20%)
         {
           id: 'neg-3',
           ticker: 'GOOG',
           amount: 3,
-          pricePerShare: 75,
+          pricePerStock: 75,
           settlementDate: '2026-12-01',
           premium: 0,
           lastModified: new Date().toISOString(),
           status: 'ACTIVE',
           initiatedByMe: true,
-          marketPrice,
         },
       ],
     }).as('getNegotiations')
@@ -100,11 +103,11 @@ describe('Portal OTC Ponude i Ugovori — scenarios 23–28', () => {
     cy.get('table tbody tr').should('have.length', 3)
 
     // Assert color indicators exist (the UI applies color classes based on deviation)
-    cy.get('table tbody tr').eq(0).find('[class*="green"], .text-green-500, .text-green-600')
+    cy.get('table tbody tr').eq(0).find('[class*="emerald"]')
       .should('exist')
-    cy.get('table tbody tr').eq(1).find('[class*="yellow"], .text-yellow-500, .text-yellow-600')
+    cy.get('table tbody tr').eq(1).find('[class*="amber"]')
       .should('exist')
-    cy.get('table tbody tr').eq(2).find('[class*="red"], .text-red-500, .text-red-600')
+    cy.get('table tbody tr').eq(2).find('[class*="red"]')
       .should('exist')
   })
 
@@ -113,6 +116,10 @@ describe('Portal OTC Ponude i Ugovori — scenarios 23–28', () => {
   it('Scenario 25: filtriranje sklopljenih ugovora po statusu "važeći"', () => {
     // Given: korisnik je na stranici Sklopljeni ugovori
     loginAsClient()
+    cy.intercept('GET', 'http://localhost:8083/otc/contracts*', {
+      statusCode: 200,
+      body: [{ id: 1, ticker: 'AAPL', amount: 5, strikePrice: 180, premium: 500, settlementDate: '2027-12-01', status: 'ACTIVE', seller: 'Test Seller' }],
+    }).as('getContracts')
     cy.visit('/client/otc/contracts')
 
     // When: filtrira po statusu "važeći"
@@ -132,6 +139,10 @@ describe('Portal OTC Ponude i Ugovori — scenarios 23–28', () => {
   it('Scenario 26: iskorišćavanje važećeg opcionog ugovora po SAGA patternu', () => {
     // Given: kupac ima važeći opcioni ugovor (settlementDate nije prošao)
     loginAsClient()
+    cy.intercept('GET', 'http://localhost:8083/otc/contracts*', {
+      statusCode: 200,
+      body: [{ id: 1, ticker: 'AAPL', amount: 5, strikePrice: 180, premium: 500, settlementDate: '2027-12-01', status: 'ACTIVE', seller: 'Test Seller' }],
+    }).as('getContracts')
     cy.visit('/client/otc/contracts')
     cy.contains(/valid|važeći/i, { timeout: 8000 }).click()
     cy.get('table tbody tr', { timeout: 8000 }).should('have.length.greaterThan', 0)
@@ -182,7 +193,7 @@ describe('Portal OTC Ponude i Ugovori — scenarios 23–28', () => {
     // Given: opcioni ugovor ima settlementDate koji je prošao, nije iskorišćen
     loginAsClient()
 
-    cy.intercept('GET', '**/otc/contracts*', (req) => {
+    cy.intercept('GET', 'http://localhost:8083/otc/contracts*', (req) => {
       const url = req.url
       if (url.includes('EXPIRED') || url.includes('expired')) {
         req.reply({

@@ -23,7 +23,7 @@ function fillAndSubmitOrder() {
   cy.get('table tbody tr', { timeout: 10000 }).should('have.length.greaterThan', 0)
   cy.contains('button', 'Buy').first().click()
   cy.url().should('include', '/client/orders/new')
-  cy.get('input[placeholder*="Quantity"]', { timeout: 5000 })
+  cy.get('input[type="number"]', { timeout: 5000 })
     .first()
     .clear()
     .type('1')
