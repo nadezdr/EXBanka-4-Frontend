@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import useWindowTitle from '../../hooks/useWindowTitle'
 import { useAuth } from '../../context/AuthContext'
 import { otcService } from '../../services/otcService'
+import { apiClient } from '../../services/apiClient'
 import { fmt, fmtDate } from '../../utils/formatting'
 
 const TABS = [
@@ -10,15 +11,30 @@ const TABS = [
 ]
 
 function ExerciseModal({ contract, onClose, onConfirm }) {
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState(null)
+  const [submitting,        setSubmitting]        = useState(false)
+  const [error,             setError]             = useState(null)
+  const [accounts,          setAccounts]          = useState([])
+  const [selectedAccountId, setSelectedAccountId] = useState('')
+  const [accountsLoading,   setAccountsLoading]   = useState(true)
   const total = (contract.strikePrice ?? 0) * (contract.amount ?? 0)
+
+  useEffect(() => {
+    apiClient.get('/api/accounts/my')
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.accounts ?? r.data.items ?? [])
+        setAccounts(list)
+        const first = list[0]
+        if (first) setSelectedAccountId(String(first.accountId ?? first.id ?? ''))
+      })
+      .catch(() => setAccounts([]))
+      .finally(() => setAccountsLoading(false))
+  }, [])
 
   async function handleConfirm() {
     setSubmitting(true)
     setError(null)
     try {
-      await onConfirm(contract.id)
+      await onConfirm(contract.id, selectedAccountId ? Number(selectedAccountId) : undefined)
       onClose()
     } catch {
       setError('Failed to exercise contract. Please try again.')
@@ -61,6 +77,34 @@ function ExerciseModal({ contract, onClose, onConfirm }) {
           </div>
         </div>
 
+        {accountsLoading ? (
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Loading accounts…</p>
+        ) : accounts.length === 0 ? (
+          <p className="text-xs text-red-500 mb-4">No active accounts found.</p>
+        ) : (
+          <div className="mb-4">
+            <label className="block text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">
+              Deduct from
+            </label>
+            <select
+              value={selectedAccountId}
+              onChange={e => setSelectedAccountId(e.target.value)}
+              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm rounded px-3 py-2"
+            >
+              {accounts.map(a => {
+                const id = a.accountId ?? a.id
+                const currency = a.currency ?? a.currencyCode ?? ''
+                const balance = a.availableBalance ?? 0
+                return (
+                  <option key={id} value={id}>
+                    {a.accountName ?? a.accountNumber} — {currency} {fmt(balance)} available
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        )}
+
         {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
 
         <div className="flex gap-3">
@@ -72,7 +116,7 @@ function ExerciseModal({ contract, onClose, onConfirm }) {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={submitting}
+            disabled={submitting || accountsLoading || accounts.length === 0}
             className="flex-1 btn-primary text-sm py-2 disabled:opacity-50"
           >
             {submitting ? 'Processing…' : 'Confirm Exercise'}
@@ -116,8 +160,8 @@ export default function OtcContractsPage() {
 
   useEffect(() => { loadContracts(activeTab) }, [activeTab])
 
-  async function handleExercise(id) {
-    await otcService.exerciseContract(id, undefined)
+  async function handleExercise(id, buyerAccountId) {
+    await otcService.exerciseContract(id, buyerAccountId)
     await loadContracts(activeTab)
   }
 
