@@ -4,6 +4,7 @@ import useWindowTitle from '../../hooks/useWindowTitle'
 import { useClientAuth } from '../../context/ClientAuthContext'
 import { clientOtcService } from '../../services/clientOtcService'
 import { clientSecuritiesService } from '../../services/clientSecuritiesService'
+import { clientApiClient } from '../../services/clientApiClient'
 import { fmt, fmtDate, fmtDateTime } from '../../utils/formatting'
 import ClientPortalLayout from '../../layouts/ClientPortalLayout'
 
@@ -43,6 +44,10 @@ export default function ClientOtcNegotiationDetailPage() {
   const [counterPremium, setCounterPremium] = useState('')
   const [showCounter,    setShowCounter]    = useState(false)
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false)
+
+  const [accounts,          setAccounts]          = useState([])
+  const [selectedAccountId, setSelectedAccountId] = useState('')
+  const [accountsLoading,   setAccountsLoading]   = useState(false)
 
   const negRef = useRef(null)
 
@@ -86,6 +91,20 @@ export default function ClientOtcNegotiationDetailPage() {
 
   const [accepted, setAccepted] = useState(false)
 
+  useEffect(() => {
+    if (!showAcceptConfirm) return
+    setAccountsLoading(true)
+    clientApiClient.get('/api/accounts/my')
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.accounts ?? r.data.items ?? [])
+        setAccounts(list)
+        const first = list[0]
+        if (first) setSelectedAccountId(String(first.accountId ?? first.id ?? ''))
+      })
+      .catch(() => setAccounts([]))
+      .finally(() => setAccountsLoading(false))
+  }, [showAcceptConfirm])
+
   function apiError(err, fallback) {
     return err?.response?.data?.error || fallback
   }
@@ -94,7 +113,7 @@ export default function ClientOtcNegotiationDetailPage() {
     setActing(true)
     setActionError(null)
     try {
-      await clientOtcService.acceptNegotiation(id)
+      await clientOtcService.acceptNegotiation(id, selectedAccountId ? Number(selectedAccountId) : undefined)
       setAccepted(true)
     } catch (err) {
       setActionError(apiError(err, 'Failed to accept negotiation.'))
@@ -274,13 +293,42 @@ export default function ClientOtcNegotiationDetailPage() {
                 {showAcceptConfirm && (
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
                     <p className="text-sm text-slate-700 dark:text-slate-300 mb-1">
-                      Accept this offer? Premium payable: <strong>{fmt(neg.premium)}</strong>
+                      Accept this offer? Premium payable: <strong>{fmt(neg.premium)} {neg.currency}</strong>
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">This action cannot be undone.</p>
+
+                    {accountsLoading ? (
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Loading accounts…</p>
+                    ) : accounts.length === 0 ? (
+                      <p className="text-xs text-red-500 mb-4">No active accounts found.</p>
+                    ) : (
+                      <div className="mb-4">
+                        <label className="block text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">
+                          Deduct premium from
+                        </label>
+                        <select
+                          value={selectedAccountId}
+                          onChange={e => setSelectedAccountId(e.target.value)}
+                          className="input-field w-full"
+                        >
+                          {accounts.map(a => {
+                            const id = a.accountId ?? a.id
+                            const currency = a.currency ?? a.currencyCode ?? ''
+                            const balance = a.availableBalance ?? 0
+                            return (
+                              <option key={id} value={id}>
+                                {a.accountName ?? a.accountNumber} — {currency} {fmt(balance)} available
+                              </option>
+                            )
+                          })}
+                        </select>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <button
                         onClick={handleAccept}
-                        disabled={acting}
+                        disabled={acting || accounts.length === 0}
                         className="btn-primary px-5 py-2 text-sm disabled:opacity-50"
                       >
                         {acting ? 'Processing…' : 'Confirm Accept'}

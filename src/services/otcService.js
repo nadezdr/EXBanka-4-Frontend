@@ -21,8 +21,8 @@ export const otcService = {
     return data
   },
 
-  async acceptNegotiation(id) {
-    const { data } = await apiClient.put(`/otc/negotiations/${id}/accept`)
+  async acceptNegotiation(id, buyerAccountId) {
+    const { data } = await apiClient.put(`/otc/negotiations/${id}/accept`, { buyerAccountId })
     return data
   },
 
