@@ -8,6 +8,8 @@ import { fmt, fmtDate, fmtDateTime } from '../../utils/formatting'
 
 const SORT_COLS = ['pricePerStock', 'settlementDate', 'lastModified']
 
+const PENDING = new Set(['PENDING_SELLER', 'PENDING_BUYER'])
+
 function getPriceColor(price, market) {
   if (!market) return 'text-slate-700 dark:text-slate-300'
   const dev = Math.abs((price - market) / market) * 100
@@ -16,11 +18,19 @@ function getPriceColor(price, market) {
   return 'text-red-500 dark:text-red-400'
 }
 
-function getStatusLabel(neg, userId) {
+function getActiveStatusLabel(neg, userId) {
   const myTurn =
     (neg.status === 'PENDING_SELLER' && neg.sellerType === 'EMPLOYEE' && (neg.sellerId === userId || neg.sellerId === 0)) ||
     (neg.status === 'PENDING_BUYER'  && neg.buyerType  === 'EMPLOYEE' && neg.buyerId  === userId)
   return myTurn ? 'Your turn' : 'Waiting for the other party'
+}
+
+function HistoryStatusBadge({ status }) {
+  if (status === 'ACCEPTED')
+    return <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Accepted</span>
+  if (status === 'REJECTED')
+    return <span className="text-xs font-medium text-red-500 dark:text-red-400">Rejected</span>
+  return <span className="text-xs font-medium text-slate-400 dark:text-slate-500">{status}</span>
 }
 
 export default function OtcNegotiationsPage() {
@@ -34,6 +44,7 @@ export default function OtcNegotiationsPage() {
   const [sortCol, setSortCol]           = useState(null)
   const [sortOrder, setSortOrder]       = useState('ASC')
   const [marketPrices, setMarketPrices] = useState({})
+  const [tab, setTab]                   = useState('active')
 
   const loadNegotiations = useCallback(async () => {
     setLoading(true)
@@ -93,12 +104,41 @@ export default function OtcNegotiationsPage() {
     return sortOrder === 'ASC' ? cmp : -cmp
   })
 
+  const activeRows  = sorted.filter(n => PENDING.has(n.status))
+  const historyRows = sorted.filter(n => !PENDING.has(n.status))
+  const rows = tab === 'active' ? activeRows : historyRows
+
   const userId = user?.id
 
   function thClass(sortable) {
     return `px-4 py-4 text-left text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap${
       sortable ? ' cursor-pointer select-none hover:text-slate-900 dark:hover:text-white transition-colors' : ''
     }`
+  }
+
+  function TabButton({ value, label, count }) {
+    const active = tab === value
+    return (
+      <button
+        onClick={() => setTab(value)}
+        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+          active
+            ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+        }`}
+      >
+        {label}
+        {count > 0 && (
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+            active
+              ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300'
+              : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+          }`}>
+            {count}
+          </span>
+        )}
+      </button>
+    )
   }
 
   return (
@@ -108,6 +148,11 @@ export default function OtcNegotiationsPage() {
         <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-4">Employee Portal</p>
         <h1 className="font-serif text-4xl font-light text-slate-900 dark:text-white mb-3">OTC Negotiations</h1>
         <div className="w-10 h-px bg-violet-500 dark:bg-violet-400 mb-8" />
+
+        <div className="flex gap-1 mb-4">
+          <TabButton value="active"  label="Active"  count={activeRows.length} />
+          <TabButton value="history" label="History" count={historyRows.length} />
+        </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
           {loading ? (
@@ -141,18 +186,17 @@ export default function OtcNegotiationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.length === 0 ? (
+                  {rows.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                        You have no active negotiations.
+                        {tab === 'active' ? 'You have no active negotiations.' : 'No negotiation history yet.'}
                       </td>
                     </tr>
                   ) : (
-                    sorted.map((neg, i) => {
+                    rows.map((neg, i) => {
                       const marketPrice = marketPrices[neg.ticker]
                       const priceColor  = getPriceColor(neg.pricePerStock, marketPrice)
-                      const statusLabel = getStatusLabel(neg, userId)
-                      const isMyTurn    = statusLabel === 'Your turn'
+                      const isMyTurn    = tab === 'active' && getActiveStatusLabel(neg, userId) === 'Your turn'
                       return (
                         <tr
                           key={neg.id}
@@ -191,13 +235,17 @@ export default function OtcNegotiationsPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs font-medium ${
-                              isMyTurn
-                                ? 'text-violet-600 dark:text-violet-400'
-                                : 'text-slate-400 dark:text-slate-500'
-                            }`}>
-                              {statusLabel}
-                            </span>
+                            {tab === 'active' ? (
+                              <span className={`text-xs font-medium ${
+                                isMyTurn
+                                  ? 'text-violet-600 dark:text-violet-400'
+                                  : 'text-slate-400 dark:text-slate-500'
+                              }`}>
+                                {getActiveStatusLabel(neg, userId)}
+                              </span>
+                            ) : (
+                              <HistoryStatusBadge status={neg.status} />
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <button
@@ -215,9 +263,9 @@ export default function OtcNegotiationsPage() {
               </table>
             </div>
           )}
-          {!loading && !error && sorted.length > 0 && (
+          {!loading && !error && rows.length > 0 && (
             <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
-              {sorted.length} negotiation{sorted.length !== 1 ? 's' : ''}
+              {rows.length} negotiation{rows.length !== 1 ? 's' : ''}
             </div>
           )}
         </div>
