@@ -35,6 +35,8 @@ function OfferModal({ item, onClose, onSubmit }) {
       if (item.isExternal) {
         payload.sellerRoutingNumber = item.sellerRoutingNumber
         payload.sellerExternalId   = item.sellerExternalId
+        payload.sellerId            = item.sellerId
+        payload.sellerType          = item.sellerType
       } else {
         payload.sellerId   = item.ownerId
         payload.sellerType = item.ownerType
@@ -186,11 +188,13 @@ export default function OtcMarketPage() {
           ticker:              entry.stock?.ticker ?? '',
           name:                entry.stock?.name ?? '',
           pricePerStock:       entry.stock?.price,
-          currency:            entry.stock?.currency ?? '',
+          currency:            entry.stock?.currency || 'USD',
           amount:              s.amount,
           ownerBank:           bankName,
           sellerRoutingNumber: s.seller?.routingNumber,
           sellerExternalId:    String(s.seller?.id ?? ''),
+          sellerId:            Number(s.seller?.id ?? 0),
+          sellerType:          'CLIENT',
           isExternal:          true,
         }))
       )
