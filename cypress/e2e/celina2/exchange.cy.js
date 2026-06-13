@@ -97,11 +97,11 @@ describe('Menjačnica — scenarios 24–26', () => {
   // ── Scenario 25 ──────────────────────────────────────────────────────────────
 
   it('Scenario 25: provera ekvivalentnosti valute — prikazuje konverziju bez izvršavanja transakcije', () => {
-    // Find RSD and EUR account IDs via API
-    cy.request('POST', `${API_BASE}/client/login`, {
-      email: CLIENT_EMAIL, password: CLIENT_PASSWORD, source: 'mobile',
-    }).then(({ body }) => {
-      const token = body.access_token
+    // Use the token already in the browser session (re-logging in via cy.request would
+    // create a new session on the backend and invalidate the current refresh token,
+    // causing the exchange page to redirect to /client/login instead of rendering).
+    cy.window().then(win => {
+      const token = win.sessionStorage.getItem('client_access_token')
       cy.request({
         method:  'GET',
         url:     `${API_BASE}/api/accounts/my`,
@@ -154,11 +154,9 @@ describe('Menjačnica — scenarios 24–26', () => {
   // ── Scenario 26 ──────────────────────────────────────────────────────────────
 
   it('Scenario 26: konverzija valute tokom transfera — vrši se konverzija po prodajnom kursu sa provizijom', () => {
-    // Find RSD (funded) and EUR account IDs via API
-    cy.request('POST', `${API_BASE}/client/login`, {
-      email: CLIENT_EMAIL, password: CLIENT_PASSWORD, source: 'mobile',
-    }).then(({ body }) => {
-      const token = body.access_token
+    // Use the token already in the browser session — same reason as Scenario 25.
+    cy.window().then(win => {
+      const token = win.sessionStorage.getItem('client_access_token')
       cy.request({
         method:  'GET',
         url:     `${API_BASE}/api/accounts/my`,
