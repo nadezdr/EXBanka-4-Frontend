@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from './NotificationBell'
+import { notificationService } from '../services/notificationService'
 
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -86,6 +88,9 @@ function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
+            {user && (
+              <NotificationBell service={notificationService} notificationsRoute="/notifications" />
+            )}
             <button
               onClick={toggle}
               aria-label="Toggle dark mode"

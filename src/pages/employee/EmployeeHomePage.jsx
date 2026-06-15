@@ -5,6 +5,8 @@ import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import Navbar from '../../components/Navbar'
 import { NAV_ITEMS } from '../../layouts/EmployeePortalLayout'
+import NotificationBell from '../../components/NotificationBell'
+import { notificationService } from '../../services/notificationService'
 
 const PERMISSION_META = {
   isAdmin: {
@@ -175,6 +177,7 @@ function EmployeeHomePage() {
                 <span className="text-sm text-slate-500 dark:text-slate-400 font-light hidden sm:block">
                   Welcome back, <span className="text-slate-900 dark:text-white font-medium">{user.firstName} {user.lastName}</span>
                 </span>
+                <NotificationBell service={notificationService} notificationsRoute="/notifications" />
                 <button onClick={toggle} aria-label="Toggle dark mode" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                   {dark ? (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

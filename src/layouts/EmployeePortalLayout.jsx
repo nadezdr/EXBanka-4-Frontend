@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from '../components/NotificationBell'
+import { notificationService } from '../services/notificationService'
 
 export const NAV_ITEMS = [
   {
@@ -113,6 +115,12 @@ export const NAV_ITEMS = [
     icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     show: (p) => p?.isAdmin || p?.isAgent || p?.isSupervisor,
   },
+  {
+    label: 'Security Settings',
+    href: '/settings/security',
+    icon: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z',
+    show: () => true,
+  },
 ]
 
 export default function EmployeePortalLayout() {
@@ -188,6 +196,9 @@ export default function EmployeePortalLayout() {
                 <span className="text-sm text-slate-500 dark:text-slate-400 font-light hidden sm:block">
                   Welcome back, <span className="text-slate-900 dark:text-white font-medium">{user.firstName} {user.lastName}</span>
                 </span>
+              )}
+              {user && (
+                <NotificationBell service={notificationService} notificationsRoute="/notifications" />
               )}
               <button onClick={toggle} aria-label="Toggle dark mode" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 {dark ? (
