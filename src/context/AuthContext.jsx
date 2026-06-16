@@ -39,7 +39,15 @@ export function AuthProvider({ children }) {
   // ── Public API ──────────────────────────────────────────────────────────
 
   async function login(email, password) {
-    const userData = await authService.login(email, password)
+    const result = await authService.login(email, password)
+    // TOTP required — don't set user yet, return the partial result
+    if (result.requiresTotp) return result
+    setUser(result)
+    return result
+  }
+
+  async function validateTotpLogin(sessionToken, code) {
+    const userData = await authService.validateTotpLogin(sessionToken, code)
     setUser(userData)
     return userData
   }
@@ -50,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, validateTotpLogin, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

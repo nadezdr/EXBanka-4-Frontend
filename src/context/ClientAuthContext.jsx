@@ -20,7 +20,14 @@ export function ClientAuthProvider({ children }) {
   }, [])
 
   async function clientLogin(email, password) {
-    const userData = await clientAuthService.login(email, password)
+    const result = await clientAuthService.login(email, password)
+    if (result.requiresTotp) return result
+    setClientUser(result)
+    return result
+  }
+
+  async function clientValidateTotpLogin(sessionToken, code) {
+    const userData = await clientAuthService.validateTotpLogin(sessionToken, code)
     setClientUser(userData)
     return userData
   }
@@ -31,7 +38,7 @@ export function ClientAuthProvider({ children }) {
   }
 
   return (
-    <ClientAuthContext.Provider value={{ clientUser, clientLogin, clientLogout }}>
+    <ClientAuthContext.Provider value={{ clientUser, clientLogin, clientValidateTotpLogin, clientLogout }}>
       {children}
     </ClientAuthContext.Provider>
   )

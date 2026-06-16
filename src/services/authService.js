@@ -41,14 +41,48 @@ function buildUserPayload(claims) {
 export const authService = {
   /**
    * Log in with email + password.
-   * POST /login → { access_token, refresh_token }
-   * User info is read directly from the JWT claims.
+   * POST /login → { access_token, refresh_token } OR { requires_totp, session_token }
+   * Returns user payload on success, or { requiresTotp: true, sessionToken } for 2FA step.
    */
   async login(email, password) {
     const { data } = await apiClient.post('/login', { email, password })
+    if (data.requires_totp) {
+      return { requiresTotp: true, sessionToken: data.session_token }
+    }
     tokenService.setAccessToken(data.access_token)
     tokenService.setRefreshToken(data.refresh_token)
     return buildUserPayload(decodeJwtPayload(data.access_token))
+  },
+
+  /**
+   * Complete login after TOTP verification.
+   * POST /auth/totp/validate → { access_token, refresh_token }
+   */
+  async validateTotpLogin(sessionToken, code) {
+    const { data } = await apiClient.post('/auth/totp/validate', {
+      session_token: sessionToken,
+      code,
+    })
+    tokenService.setAccessToken(data.access_token)
+    tokenService.setRefreshToken(data.refresh_token)
+    return buildUserPayload(decodeJwtPayload(data.access_token))
+  },
+
+  /** POST /auth/totp/generate → { secret, otpauth_uri, qr_code_png } */
+  async generateTotpSecret() {
+    const { data } = await apiClient.post('/auth/totp/generate')
+    return data
+  },
+
+  /** POST /auth/totp/verify — verify and enable TOTP */
+  async verifyTotp(code) {
+    const { data } = await apiClient.post('/auth/totp/verify', { code })
+    return data
+  },
+
+  /** DELETE /auth/totp — disable TOTP */
+  async disableTotp() {
+    await apiClient.delete('/auth/totp')
   },
 
   /**

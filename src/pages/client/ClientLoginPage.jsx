@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import useWindowTitle from '../../hooks/useWindowTitle'
 import { useClientAuth } from '../../context/ClientAuthContext'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 
 function validate(fields) {
   const errors = {}
@@ -15,7 +15,7 @@ function validate(fields) {
 
 export default function ClientLoginPage() {
   useWindowTitle('Sign In | AnkaBanka')
-  const { clientLogin } = useClientAuth()
+  const { clientLogin, clientValidateTotpLogin } = useClientAuth()
   const navigate = useNavigate()
 
   const [fields, setFields]       = useState({ email: '', password: '' })
@@ -23,6 +23,13 @@ export default function ClientLoginPage() {
   const [submitted, setSubmitted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState(null)
+  const [lockedUntil, setLockedUntil] = useState(null)
+
+  // TOTP second step state
+  const [totpSessionToken, setTotpSessionToken] = useState(null)
+  const [totpCode, setTotpCode] = useState('')
+  const [totpError, setTotpError] = useState(null)
+  const [totpLoading, setTotpLoading] = useState(false)
 
   const errors = validate(fields)
   const visibleErrors = {
@@ -44,11 +51,88 @@ export default function ClientLoginPage() {
     setSubmitted(true)
     if (Object.keys(errors).length > 0) return
     try {
-      await clientLogin(fields.email, fields.password)
+      const result = await clientLogin(fields.email, fields.password)
+      if (result.requiresTotp) {
+        setTotpSessionToken(result.sessionToken)
+        return
+      }
+      navigate('/client')
+    } catch (err) {
+      setLockedUntil(null)
+      if (err?.response?.status === 403) {
+        const msg = err.response.data?.error ?? ''
+        const match = msg.match(/account locked until (.+)/)
+        setLockedUntil(match ? new Date(match[1]) : true)
+      } else {
+        setAuthError('Invalid email or password.')
+      }
+    }
+  }
+
+  async function handleTotpSubmit(e) {
+    e.preventDefault()
+    if (totpCode.length !== 6) {
+      setTotpError('Please enter the 6-digit code from your authenticator app.')
+      return
+    }
+    setTotpLoading(true)
+    setTotpError(null)
+    try {
+      await clientValidateTotpLogin(totpSessionToken, totpCode)
       navigate('/client')
     } catch {
-      setAuthError('Invalid email or password.')
+      setTotpError('Invalid or expired code. Please try again.')
+    } finally {
+      setTotpLoading(false)
     }
+  }
+
+  if (totpSessionToken) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-6 py-16">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <p className="text-xs tracking-widest uppercase text-violet-600 dark:text-violet-400 mb-4">Two-Factor Auth</p>
+            <h1 className="font-serif text-4xl font-light text-slate-900 dark:text-white mb-3">Verify Identity</h1>
+            <div className="w-10 h-px bg-violet-500 dark:bg-violet-400 mx-auto" />
+          </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-8 shadow-sm">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
+              Enter the 6-digit code from your authenticator app.
+            </p>
+            <form onSubmit={handleTotpSubmit} className="space-y-6">
+              <div>
+                <label className="block text-xs tracking-widest uppercase text-slate-600 dark:text-slate-400 mb-2">
+                  Verification Code
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(null) }}
+                  placeholder="000000"
+                  className="input-field text-center text-2xl tracking-widest font-mono"
+                  autoFocus
+                />
+                {totpError && <p className="mt-2 text-xs text-red-500">{totpError}</p>}
+              </div>
+              <button type="submit" disabled={totpLoading} className="btn-primary w-full">
+                {totpLoading ? 'Verifying…' : 'Verify'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTotpSessionToken(null); setTotpCode(''); setTotpError(null) }}
+                className="w-full text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-center"
+              >
+                ← Back to login
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -95,12 +179,20 @@ export default function ClientLoginPage() {
 
             {/* Password */}
             <div>
-              <label
-                htmlFor="password"
-                className="block text-xs tracking-widest uppercase text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Password
-              </label>
+                <div className="flex items-center justify-between mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-xs tracking-widest uppercase text-slate-600 dark:text-slate-400"
+                >
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-500 dark:hover:text-violet-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"
@@ -139,6 +231,20 @@ export default function ClientLoginPage() {
             <button type="submit" className="btn-primary w-full mt-2">
               Sign In
             </button>
+            {lockedUntil && (
+              <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-xs text-red-700 dark:text-red-400 space-y-1">
+                <p className="font-medium">Your account is temporarily locked.</p>
+                {lockedUntil instanceof Date && (
+                  <p>
+                    Try again in {Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000))} minute(s) or{' '}
+                    <Link to="/forgot-password" className="underline hover:text-red-900 dark:hover:text-red-300">
+                      reset your password
+                    </Link>{' '}
+                    to unlock it immediately.
+                  </p>
+                )}
+              </div>
+            )}
             {authError && (
               <p className="text-xs text-red-500 text-center">{authError}</p>
             )}

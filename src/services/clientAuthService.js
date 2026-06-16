@@ -7,6 +7,7 @@
 
 import axios from 'axios'
 import { clientTokenService } from './clientTokenService'
+import { clientApiClient } from './clientApiClient'
 
 const BASE_URL = window.__ENV__?.API_URL ?? 'http://localhost:8083'
 
@@ -17,9 +18,11 @@ function decodeJwtPayload(token) {
 
 export const clientAuthService = {
   async login(email, password) {
-    // TODO (#25): remove source:'mobile' once the mobile 2FA flow is implemented —
-    // without it the backend returns { approvalRequestId } instead of tokens
     const { data } = await axios.post(`${BASE_URL}/client/login`, { email, password, source: 'mobile' })
+
+    if (data.requires_totp) {
+      return { requiresTotp: true, sessionToken: data.session_token }
+    }
 
     clientTokenService.setAccessToken(data.access_token)
     clientTokenService.setRefreshToken(data.refresh_token)
@@ -31,6 +34,36 @@ export const clientAuthService = {
       lastName:  claims.last_name,
       email:     claims.email,
     }
+  },
+
+  async validateTotpLogin(sessionToken, code) {
+    const { data } = await axios.post(`${BASE_URL}/auth/totp/validate`, {
+      session_token: sessionToken,
+      code,
+    })
+    clientTokenService.setAccessToken(data.access_token)
+    clientTokenService.setRefreshToken(data.refresh_token)
+    const claims = decodeJwtPayload(data.access_token)
+    return {
+      id:        claims.user_id,
+      firstName: claims.first_name,
+      lastName:  claims.last_name,
+      email:     claims.email,
+    }
+  },
+
+  async generateTotpSecret() {
+    const { data } = await clientApiClient.post('/auth/totp/generate')
+    return data
+  },
+
+  async verifyTotp(code) {
+    const { data } = await clientApiClient.post('/auth/totp/verify', { code })
+    return data
+  },
+
+  async disableTotp() {
+    await clientApiClient.delete('/auth/totp')
   },
 
   async logout() {

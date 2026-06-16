@@ -75,6 +75,19 @@ import FundDetailPage from './pages/investment/FundDetailPage'
 import ClientFundsDiscoveryPage from './pages/client/ClientFundsDiscoveryPage'
 import ClientFundDetailPage from './pages/client/ClientFundDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
+import NotificationsPage from './pages/NotificationsPage'
+import ClientNotificationsPage from './pages/client/ClientNotificationsPage'
+import TotpSetupPage from './pages/auth/TotpSetupPage'
+import AccountSettingsPage from './pages/settings/AccountSettingsPage'
+import MyOrdersPage from './pages/orders/MyOrdersPage'
+import ClientMyOrdersPage from './pages/client/ClientMyOrdersPage'
+import WatchlistPage from './pages/watchlists/WatchlistPage'
+import ClientWatchlistPage from './pages/client/ClientWatchlistPage'
+import PriceAlertsPage from './pages/alerts/PriceAlertsPage'
+import ClientPriceAlertsPage from './pages/client/ClientPriceAlertsPage'
+import AuditLogPage from './pages/employee/AuditLogPage'
+import RecurringOrdersPage from './pages/orders/RecurringOrdersPage'
+import ClientRecurringOrdersPage from './pages/client/ClientRecurringOrdersPage'
 
 function App() {
   return (
@@ -125,6 +138,14 @@ function App() {
               <Route path="/investment/funds"        element={<FundsDiscoveryPage />} />
               <Route path="/investment/funds/new"    element={<CreateFundPage />} />
               <Route path="/investment/funds/:id"    element={<FundDetailPage />} />
+              <Route path="/notifications"           element={<NotificationsPage />} />
+              <Route path="/settings/security"       element={<AccountSettingsPage />} />
+              <Route path="/settings/totp"           element={<TotpSetupPage />} />
+              <Route path="/my-orders"               element={<MyOrdersPage />} />
+              <Route path="/watchlists"              element={<WatchlistPage />} />
+              <Route path="/price-alerts"            element={<PriceAlertsPage />} />
+              <Route path="/audit-log"               element={<AuditLogPage />} />
+              <Route path="/recurring-orders"        element={<RecurringOrdersPage />} />
             </Route>
           </Route>
 
@@ -163,6 +184,11 @@ function App() {
           <Route path="/client/otc/contracts"          element={<ClientOtcContractsPage />} />
           <Route path="/client/investment/funds"     element={<ClientFundsDiscoveryPage />} />
           <Route path="/client/investment/funds/:id" element={<ClientFundDetailPage />} />
+          <Route path="/client/notifications"        element={<ClientNotificationsPage />} />
+          <Route path="/client/my-orders"           element={<ClientMyOrdersPage />} />
+          <Route path="/client/watchlists"          element={<ClientWatchlistPage />} />
+          <Route path="/client/price-alerts"        element={<ClientPriceAlertsPage />} />
+          <Route path="/client/recurring-orders"    element={<ClientRecurringOrdersPage />} />
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

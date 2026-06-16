@@ -48,6 +48,8 @@ export default function OtcNegotiationDetailPage() {
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [accountsLoading,   setAccountsLoading]   = useState(false)
 
+  const [history, setHistory] = useState([])
+
   const negRef = useRef(null)
 
   useEffect(() => {
@@ -69,6 +71,10 @@ export default function OtcNegotiationDetailPage() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
+  }, [id])
+
+  useEffect(() => {
+    otcService.getNegotiationHistory(id).then(setHistory).catch(() => {})
   }, [id])
 
   // Poll every 10 s for cross-bank negotiations so counter-offers from the partner appear automatically.
@@ -398,6 +404,68 @@ export default function OtcNegotiationDetailPage() {
           </>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">Negotiation History</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-3 py-2 text-left text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Action</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">By</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Amount</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Price/Stock</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Premium</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Settlement</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium tracking-widest uppercase text-slate-500 dark:text-slate-400">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {history.map(e => {
+                  const badge = {
+                    CREATED:      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+                    COUNTER_OFFER:'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                    ACCEPTED:     'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                    REJECTED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+                  }[e.action] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  const fmtChange = (oldVal, newVal) =>
+                    oldVal != null && newVal != null && String(oldVal) !== String(newVal)
+                      ? <span><span className="line-through text-slate-400">{oldVal}</span><span className="mx-1 text-slate-400">→</span>{newVal}</span>
+                      : (newVal ?? oldVal ?? <span className="text-slate-400">—</span>)
+                  return (
+                    <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="px-3 py-3">
+                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${badge}`}>
+                          {e.action.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
+                        {e.actorName || `${e.actorType} #${e.actorId}`}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
+                        {fmtChange(e.oldAmount, e.newAmount)}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
+                        {fmtChange(e.oldPricePerStock, e.newPricePerStock)}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
+                        {fmtChange(e.oldPremium, e.newPremium)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
+                        {fmtChange(e.oldSettlementDate, e.newSettlementDate)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400 text-xs">
+                        {e.timestamp ? fmtDateTime(e.timestamp) : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
