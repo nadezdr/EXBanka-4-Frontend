@@ -54,6 +54,7 @@ export default function ClientFundDetailPage() {
   const [perfPeriod, setPerfPeriod]   = useState(PERF_PERIODS[0])
   const [perfData, setPerfData]       = useState([])
   const [perfLoading, setPerfLoading] = useState(true)
+  const [avgData, setAvgData]         = useState([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,10 +97,15 @@ export default function ClientFundDetailPage() {
     setPerfLoading(true)
     const { from, to } = periodDates(period.months)
     try {
-      const data = await clientPortfolioService.getFundPerformance(id, from, to)
-      setPerfData(data)
+      const [perfResult, avgResult] = await Promise.allSettled([
+        clientPortfolioService.getFundPerformance(id, from, to),
+        clientPortfolioService.getAveragePerformance(from, to),
+      ])
+      setPerfData(perfResult.status === 'fulfilled' && Array.isArray(perfResult.value) ? perfResult.value : [])
+      setAvgData(avgResult.status === 'fulfilled' && Array.isArray(avgResult.value) ? avgResult.value : [])
     } catch {
       setPerfData([])
+      setAvgData([])
     } finally {
       setPerfLoading(false)
     }
@@ -167,6 +173,12 @@ export default function ClientFundDetailPage() {
           <StatCard label="Fund Value"        value={fmt(fund.fundValue ?? 0, 'RSD')} />
           <StatCard label="Profit"            value={`${(fund.profit ?? 0) >= 0 ? '+' : ''}${fmt(fund.profit ?? 0, 'RSD')}`} highlight={profitColor} />
           <StatCard label="Min. Contribution" value={fmt(fund.minimumContribution ?? 0, 'RSD')} />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <StatCard label="Annual Return" value={fund.stats?.hasSufficientData ? `${(fund.stats.annualReturn * 100).toFixed(2)}%` : 'N/A'} />
+          <StatCard label="Volatility"    value={fund.stats?.hasSufficientData ? `${(fund.stats.volatility * 100).toFixed(2)}%` : 'N/A'} />
+          <StatCard label="Max Drawdown"  value={fund.stats?.hasSufficientData ? `${(fund.stats.maxDrawdown * 100).toFixed(2)}%` : 'N/A'} />
+          <StatCard label="R/V Ratio"     value={fund.stats?.hasSufficientData ? fund.stats.rewardToVariability.toFixed(3) : 'N/A'} />
         </div>
 
         {myPosition && (
@@ -258,7 +270,13 @@ export default function ClientFundDetailPage() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart
-                data={[...perfData].sort((a, b) => (a.date < b.date ? -1 : 1)).map(r => ({ date: String(r.date).slice(0, 10), value: r.value ?? 0 }))}
+                data={(() => {
+                  const avgMap = Object.fromEntries((avgData ?? []).map(r => [String(r.date).slice(0, 10), r.avgFundValue]))
+                  return [...perfData].sort((a, b) => (a.date < b.date ? -1 : 1)).map(r => {
+                    const d = String(r.date).slice(0, 10)
+                    return { date: d, value: r.value ?? 0, avgValue: avgMap[d] ?? null }
+                  })
+                })()}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -266,6 +284,7 @@ export default function ClientFundDetailPage() {
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => fmt(v)} width={80} />
                 <Tooltip formatter={v => [fmt(v), 'Value']} contentStyle={{ fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff' }} />
                 <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="avgValue" stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="5 5" dot={false} activeDot={false} name="Market Avg" />
               </LineChart>
             </ResponsiveContainer>
           )}

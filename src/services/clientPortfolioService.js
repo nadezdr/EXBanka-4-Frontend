@@ -50,4 +50,9 @@ export const clientPortfolioService = {
     const { data } = await clientApiClient.get(`/investment/funds/${id}/performance`, { params: { from, to } })
     return Array.isArray(data) ? data : []
   },
+
+  async getAveragePerformance(from, to) {
+    const { data } = await clientApiClient.get('/investment/funds/average-performance', { params: { from, to } })
+    return Array.isArray(data) ? data : []
+  },
 }

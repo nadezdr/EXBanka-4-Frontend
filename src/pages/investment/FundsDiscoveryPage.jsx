@@ -60,10 +60,19 @@ export default function FundsDiscoveryPage() {
     !search || f.name?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const statsKeys = ['annualReturn', 'rewardToVariability', 'maxDrawdown', 'volatility']
+  function getVal(fund, col) {
+    if (statsKeys.includes(col)) {
+      if (!fund.stats?.hasSufficientData) return null
+      return fund.stats[col] ?? null
+    }
+    return fund[col] ?? null
+  }
+
   const sorted = [...filtered].sort((a, b) => {
     if (!sortCol) return 0
-    const va = a[sortCol]
-    const vb = b[sortCol]
+    const va = getVal(a, sortCol)
+    const vb = getVal(b, sortCol)
     if (va == null && vb == null) return 0
     if (va == null) return 1
     if (vb == null) return -1
@@ -125,6 +134,18 @@ export default function FundsDiscoveryPage() {
                     <th className={thClass(true)} onClick={() => handleSort('minimumContribution')}>
                       Min. Contribution<SortIcon sortCol={sortCol} col="minimumContribution" sortOrder={sortOrder} />
                     </th>
+                    <th className={thClass(true)} onClick={() => handleSort('annualReturn')}>
+                      Annual Return<SortIcon sortCol={sortCol} col="annualReturn" sortOrder={sortOrder} />
+                    </th>
+                    <th className={thClass(true)} onClick={() => handleSort('volatility')}>
+                      Volatility<SortIcon sortCol={sortCol} col="volatility" sortOrder={sortOrder} />
+                    </th>
+                    <th className={thClass(true)} onClick={() => handleSort('maxDrawdown')}>
+                      Max Drawdown<SortIcon sortCol={sortCol} col="maxDrawdown" sortOrder={sortOrder} />
+                    </th>
+                    <th className={thClass(true)} onClick={() => handleSort('rewardToVariability')}>
+                      R/V Ratio<SortIcon sortCol={sortCol} col="rewardToVariability" sortOrder={sortOrder} />
+                    </th>
                     {(isAgent || isSupervisor) && <th className={thClass(false)}>Actions</th>}
                   </tr>
                 </thead>
@@ -147,6 +168,18 @@ export default function FundsDiscoveryPage() {
                           {(fund.profit ?? 0) >= 0 ? '+' : ''}{fmt(fund.profit ?? 0, 'RSD')}
                         </td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{fmt(fund.minimumContribution, 'RSD')}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300" title={fund.stats?.hasSufficientData ? undefined : 'Insufficient historical data'}>
+                          {fund.stats?.hasSufficientData ? `${(fund.stats.annualReturn * 100).toFixed(2)}%` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300" title={fund.stats?.hasSufficientData ? undefined : 'Insufficient historical data'}>
+                          {fund.stats?.hasSufficientData ? `${(fund.stats.volatility * 100).toFixed(2)}%` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300" title={fund.stats?.hasSufficientData ? undefined : 'Insufficient historical data'}>
+                          {fund.stats?.hasSufficientData ? `${(fund.stats.maxDrawdown * 100).toFixed(2)}%` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300" title={fund.stats?.hasSufficientData ? undefined : 'Insufficient historical data'}>
+                          {fund.stats?.hasSufficientData ? fund.stats.rewardToVariability.toFixed(3) : 'N/A'}
+                        </td>
                         {(isAgent || isSupervisor) && (
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
