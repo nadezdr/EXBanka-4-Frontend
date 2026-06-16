@@ -50,4 +50,9 @@ export const clientOtcService = {
     const { data } = await clientApiClient.post(`/otc/contracts/${id}/exercise`, { buyerAccountId })
     return data
   },
+
+  async getNegotiationHistory(id) {
+    const { data } = await clientApiClient.get(`/otc/negotiations/${id}/history`)
+    return data
+  },
 }

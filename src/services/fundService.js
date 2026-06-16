@@ -70,4 +70,9 @@ export const fundService = {
     const { data } = await apiClient.get('/investment/funds/bank-positions')
     return Array.isArray(data) ? data : (data.positions ?? data.items ?? [])
   },
+
+  async getAveragePerformance(from, to) {
+    const { data } = await apiClient.get('/investment/funds/average-performance', { params: { from, to } })
+    return data
+  },
 }
